@@ -339,7 +339,6 @@ subtest cloning => sub {
     is($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone without overrides: underlying.');
     is_deeply($surface->surface, $clone->surface, 'clone without overrides: surface.');
     is($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone without overrides: recorded_date.');
-    is($surface->print_precision,         $clone->print_precision,         'clone without overrides: print_precision.');
 
     $clone = $surface->clone({
             underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxGBPNOK'),
@@ -352,13 +351,11 @@ subtest cloning => sub {
                     }}
             },
             recorded_date   => Date::Utility->new('20-Jan-12'),
-            print_precision => 1,
         });
 
     isnt($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone with overrides: underlying.');
     cmp_ok(scalar @{$surface->term_by_day}, '!=', scalar @{$clone->term_by_day}, 'clone with overrides: surface.');
     isnt($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone with overrides: recorded_date.');
-    isnt($surface->print_precision,         $clone->print_precision,         'clone with overrides: print_precision.');
 };
 
 subtest 'get_volatility, part 1.' => sub {

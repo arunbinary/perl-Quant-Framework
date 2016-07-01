@@ -139,7 +139,6 @@ sub _get_surfaces_from_file {
         my $args = {
             underlying_config => $underlying_config,
             recorded_date     => $surface_date,
-            print_precision   => undef,
             deltas            => [25, 50, 75],
             surface           => $surface_data,
             market_points     => {

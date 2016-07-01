@@ -345,8 +345,6 @@ sub clone {
 
     $clone_args{recorded_date} = $self->recorded_date
         if (not exists $clone_args{recorded_date});
-    $clone_args{print_precision} = $self->print_precision
-        if (not exists $clone_args{print_precision});
     $clone_args{original_term} = dclone($self->original_term)
         if (not exists $clone_args{original_term});
 

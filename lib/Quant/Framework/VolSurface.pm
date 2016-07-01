@@ -259,19 +259,6 @@ sub _build_spread_points {
     return \@spread_points;
 }
 
-=head2 print_precision
-
-The precision at which we should output vols, in number of digits after the decimal.
-If set 0 or undefined, we will use full precision
-
-=cut
-
-has print_precision => (
-    is      => 'ro',
-    isa     => 'Maybe[Num]',
-    default => 4,
-);
-
 =head2 term_by_day
 
 Get all the terms in a surface in ascending order.
