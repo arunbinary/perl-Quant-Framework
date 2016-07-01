@@ -38,25 +38,25 @@ sub _build_document {
 }
 
 has variance_table => (
-    is => 'ro',
+    is         => 'ro',
     lazy_build => 1,
 );
 
 sub _build_variance_table {
     my $self = shift;
 
-    my $raw_surface           = $self->surface;
-    my $recorded_date = Date::Utility->new($self->document->{date});
-    my $effective_date        = Quant::Framework::VolSurface::Utils->new->effective_date_for($recorded_date);
+    my $raw_surface    = $self->surface;
+    my $recorded_date  = Date::Utility->new($self->document->{date});
+    my $effective_date = Quant::Framework::VolSurface::Utils->new->effective_date_for($recorded_date);
     # New York 10:00
     my $ny_offset_from_gmt     = $effective_date->timezone_offset('America/New_York')->hours;
     my $seconds_after_midnight = $effective_date->plus_time_interval(10 - $ny_offset_from_gmt . 'h')->seconds_after_midnight;
 
     # keys are tenor in epoch, values are associated variances.
     my %table = ($recorded_date->epoch => 0);
-    foreach my $tenor (sort {$a <=> $b} keys %$raw_surface) {
-        my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
-        my $volatility = $raw_surface->{$tenor}{smile}{50}; # just atm for now
+    foreach my $tenor (sort { $a <=> $b } keys %$raw_surface) {
+        my $epoch      = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
+        my $volatility = $raw_surface->{$tenor}{smile}{50};                                                          # just atm for now
         $table{$epoch} = $volatility**2 * $tenor;
     }
 
@@ -64,7 +64,7 @@ sub _build_variance_table {
 }
 
 has surface => (
-    is => 'ro',
+    is         => 'ro',
     lazy_build => 1,
 );
 
@@ -80,9 +80,9 @@ sub get_volatility {
     die '$from is after $to in get_volatility function.' if $from->epoch > $to->epoch;
 
     my $days_between = Time::Duration::Concise->new(interval => ($to->epoch - $from->epoch))->days;
-    my $var1 = $self->get_variance($from);
-    my $var2 = $self->get_variance($to);
-    my $volatility = sqrt($var2 - $var1) / $days_between;
+    my $var1         = $self->get_variance($from);
+    my $var2         = $self->get_variance($to);
+    my $volatility   = sqrt($var2 - $var1) / $days_between;
 
     return $volatility;
 }
@@ -95,10 +95,10 @@ sub get_variance {
 
     return $table->{$epoch} if $table->{$epoch};
 
-    my @available_tenors = sort {$a <=> $b} keys %{$table};
+    my @available_tenors = sort { $a <=> $b } keys %{$table};
     my $epoch_closest = find_closest_numbers_around($date->epoch, \@available_tenors, 2)->[1];
-    my $var1 = $table->{$epoch_closest};
-    my $ratio = $self->get_weight_ratio($date, Date::Utility->new($epoch_closest));
+    my $var1          = $table->{$epoch_closest};
+    my $ratio         = $self->get_weight_ratio($date, Date::Utility->new($epoch_closest));
 
     return $ratio * $var1;
 }
@@ -113,10 +113,10 @@ sub get_weight {
     my ($self, $date) = @_;
 
     # always starts from surface recorded date to $date
-    my $recorded_date = Date::Utility->new($self->document->{date});
-    my $time_diff = $date->epoch - $recorded_date->epoch;
+    my $recorded_date   = Date::Utility->new($self->document->{date});
+    my $time_diff       = $date->epoch - $recorded_date->epoch;
     my $weight_interval = 4 * 3600;
-    my @dates = ($recorded_date);
+    my @dates           = ($recorded_date);
 
     if ($time_diff <= $weight_interval) {
         push @dates, $date;
@@ -131,7 +131,7 @@ sub get_weight {
 
     my $total_weight = 0;
     for (my $i = 1; $i <= $#dates; $i++) {
-        my $dt = $dates[$i]->epoch - $dates[$i-1]->epoch;
+        my $dt = $dates[$i]->epoch - $dates[$i - 1]->epoch;
         $total_weight += $self->builder->build_trading_calendar->weight_on($dates[$i]) * $dt / 86400;
     }
 
