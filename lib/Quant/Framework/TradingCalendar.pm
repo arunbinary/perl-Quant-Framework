@@ -283,25 +283,6 @@ sub BUILDARGS {
     return $params_ref;
 }
 
-=head1 METHODS
-
-=head2 new($symbol)
-
-Returns object for given exchange. Accepts single parameter - exchange symbol.
-
-=cut
-
-has _build_time => (
-    is      => 'ro',
-    default => sub { time },
-);
-
-# we cache objects, when we're getting object from cache we should check if it isn't too old
-# currently we allow age to be up to 30 seconds
-sub _object_expired {
-    return shift->_build_time + 30 < time;
-}
-
 =head2 simple_weight_on
 
 Returns the weight assigned to the day of a given Date::Utility object. Return 0
@@ -1289,6 +1270,25 @@ Returns the sum of the weights we apply to each day in the requested period.
 sub weighted_days_in_period {
     my ($self, $begin, $end) = @_;
 
+    state %cache;
+    state $cache_init_time = time;
+
+    my $key =
+          $begin->epoch
+        . $end->epoch
+        . $self->underlying_config->quoted_currency_symbol
+        . $self->underlying_config->asset_symbol
+        . $self->symbol
+        . ($self->for_date ? $self->for_date->epoch : 0);
+
+    #empty cache after 5-minute so upon updating related data, the cache will be refreshed
+    if (time - $cache_init_time > 300) {
+        $cache_init_time = time;
+        %cache           = ();
+    }
+
+    return $cache{$key} if defined $cache{$key};
+
     $end = $end->truncate_to_day;
     my $current = $begin->truncate_to_day->plus_time_interval('1d');
     my $days    = 0.0;
@@ -1297,6 +1297,8 @@ sub weighted_days_in_period {
         $days += $self->weight_on($current);
         $current = $current->plus_time_interval('1d');
     }
+
+    $cache{$key} = $days;
 
     return $days;
 }
