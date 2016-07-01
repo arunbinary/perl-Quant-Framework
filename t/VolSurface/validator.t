@@ -644,7 +644,6 @@ sub _sample_surface {
             symbol               => 'frxEURUSD',
             underlying_config    => $u_c,
             surface              => \%surface_data,
-            _default_cutoff_list => [],
             %$args,
             recorded_date    => Date::Utility->new,
             chronicle_reader => $chronicle_r,

@@ -256,7 +256,6 @@ sub _get_market_points_only_surface_from {
         surface           => \%mpo_surface,
         underlying_config => $surface->underlying_config,
         recorded_date     => $surface->recorded_date,
-        cutoff            => $surface->cutoff,
         print_precision   => undef,
         chronicle_reader  => $chronicle_r,
         chronicle_writer  => $chronicle_w,

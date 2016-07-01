@@ -124,9 +124,7 @@ subtest 'Fridays: early close.' => sub {
     # into the previous GMT day.
     # So, we expect both to be the same vol, but in practice we'll have cut to different
     # vols beforehand.
-    my $surface = _sample_surface({
-            cutoff        => 'UTC 21:00',
-            recorded_date => Date::Utility->new('2012-01-24 01:00:00')});
+    my $surface = _sample_surface({recorded_date => Date::Utility->new('2012-01-24 01:00:00')});
 
     my $jan25vol = $surface->get_volatility({
         expiry_date => Date::Utility->new('2012-01-25'),
@@ -321,7 +319,6 @@ sub _sample_surface {
         surface           => \%surface_data,
         recorded_date     => Date::Utility->new,
         deltas            => [25, 50, 75],
-        cutoff            => 'UTC 23:59',
         chronicle_reader  => $chronicle_r,
         chronicle_writer  => $chronicle_w,
     );
