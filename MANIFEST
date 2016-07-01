@@ -69,7 +69,6 @@ t/VolSurface/Delta/interpolation/FTSE_20120113025829.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120111024000.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120113024300.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120117231000.csv
-t/VolSurface/Delta/transform_to_cutoff.t
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111125020800.csv
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111128050525.csv
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111128212530.csv
