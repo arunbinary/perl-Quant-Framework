@@ -22,25 +22,6 @@ use List::Util qw(min first);
 use Storable qw( dclone );
 use JSON qw(from_json);
 
-=head2 save
-
-Saves current surface using chronicle writer
-
-=cut
-
-sub save {
-    my $self = shift;
-
-    #if chronicle does not have this document, first create it because in document_content we will need it
-    if (not defined $self->chronicle_reader->get('volatility_surfaces', $self->symbol)) {
-        #Due to some strange coding of retrieval for recorded_date, there MUST be an existing document (even empty)
-        #before one can save a document. As a result, upon the very first storage of an instance of the document, we need to create an empty one.
-        $self->chronicle_writer->set('volatility_surfaces', $self->symbol, {});
-    }
-
-    return $self->chronicle_writer->set('volatility_surfaces', $self->symbol, $self->_document_content, $self->recorded_date);
-}
-
 sub _document_content {
     my $self = shift;
 

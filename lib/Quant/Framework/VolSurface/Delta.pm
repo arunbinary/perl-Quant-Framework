@@ -36,25 +36,6 @@ sub _document_content {
     return \%structure;
 }
 
-=head2 save
-
-Saves current surface using given chronicle writer.
-
-=cut
-
-sub save {
-    my $self = shift;
-
-    #if chronicle does not have this document, first create it because in document_content we will need it
-    if (not defined $self->chronicle_reader->get('volatility_surfaces', $self->symbol)) {
-        #Due to some strange coding of retrieval for recorded_date, there MUST be an existing document (even empty)
-        #before one can save a document. As a result, upon the very first storage of an instance of the document, we need to create an empty one.
-        $self->chronicle_writer->set('volatility_surfaces', $self->symbol, {});
-    }
-
-    return $self->chronicle_writer->set('volatility_surfaces', $self->symbol, $self->_document_content, $self->recorded_date);
-}
-
 =head1 ATTRIBUTES
 
 =head2 type
@@ -263,8 +244,8 @@ sub clone {
         $clone_args->{surface} = \%surface_to_clone;
     }
 
-    $clone_args->{recorded_date}   = $self->recorded_date         if (not exists $clone_args->{recorded_date});
-    $clone_args->{original_term}   = dclone($self->original_term) if (not exists $clone_args->{original_term});
+    $clone_args->{recorded_date} = $self->recorded_date         if (not exists $clone_args->{recorded_date});
+    $clone_args->{original_term} = dclone($self->original_term) if (not exists $clone_args->{original_term});
     $clone_args->{chronicle_reader} = $self->chronicle_reader;
     $clone_args->{chronicle_writer} = $self->chronicle_writer;
 

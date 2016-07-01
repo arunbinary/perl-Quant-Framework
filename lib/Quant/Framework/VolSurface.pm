@@ -1486,6 +1486,23 @@ sub get_existing_surface {
         : $self;
 }
 
+=head2 save
+Saves current surface using given chronicle writer.
+=cut
+
+sub save {
+    my $self = shift;
+
+    #if chronicle does not have this document, first create it because in document_content we will need it
+    if (not defined $self->chronicle_reader->get('volatility_surfaces', $self->symbol)) {
+        #Due to some strange coding of retrieval for recorded_date, there MUST be an existing document (even empty)
+        #before one can save a document. As a result, upon the very first storage of an instance of the document, we need to create an empty one.
+        $self->chronicle_writer->set('volatility_surfaces', $self->symbol, {});
+    }
+
+    return $self->chronicle_writer->set('volatility_surfaces', $self->symbol, $self->_document_content, $self->recorded_date);
+}
+
 no Moose;
 __PACKAGE__->meta->make_immutable;
 1;
