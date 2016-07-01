@@ -23,7 +23,6 @@ lib/Quant/Framework/Utils/Test.pm
 lib/Quant/Framework/Utils/Types.pm
 lib/Quant/Framework/Utils/UnderlyingConfig.pm
 lib/Quant/Framework/VolSurface.pm
-lib/Quant/Framework/VolSurface/Cutoff.pm
 lib/Quant/Framework/VolSurface/Delta.pm
 lib/Quant/Framework/VolSurface/Moneyness.pm
 lib/Quant/Framework/VolSurface/Utils.pm
@@ -59,7 +58,6 @@ t/rates/interest_rate.t
 t/rc/.perlcriticrc
 t/rc/.perltidyrc
 t/tentative_events.t
-t/VolSurface/Cutoff.t
 t/VolSurface/delta.t
 t/VolSurface/Delta/BloombergSurfaces.pm
 t/VolSurface/Delta/ClarkSurfaces.pm

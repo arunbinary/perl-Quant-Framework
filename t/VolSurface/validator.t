@@ -241,14 +241,13 @@ subtest '_check_structure' => sub {
     qr/Must be at least two maturities on vol surface/, 'Only one maturity on surface.';
 
     throws_ok {
-        $DB::single = 1;
         $validator->validate_surface(
             _sample_surface({
                     surface => {
                         1  => {smile => {50 => 0.2}},
                         -1 => {}}}));
     }
-    qr/positive numeric days/, 'Maturity on surface too small.';
+    qr/Not a positive integer/, 'Maturity on surface is negative.';
 
     throws_ok {
         my $sample = Quant::Framework::Utils::Test::create_doc(

@@ -320,7 +320,7 @@ subtest effective_date => sub {
 };
 
 subtest cloning => sub {
-    plan tests => 9;
+    plan tests => 7;
 
     my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
     my $surface    = Quant::Framework::Utils::Test::create_doc(
