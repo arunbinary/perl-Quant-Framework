@@ -45,7 +45,7 @@ sub _document_content {
     my $self = shift;
 
     my %structure = (
-        surface        => $self->cutoff,
+        surface        => $self->surface,
         date           => $self->recorded_date->datetime_iso8601,
         symbol         => $self->symbol,
         type           => $self->type,
@@ -320,7 +320,6 @@ USAGE:
 
   my $clone = $s->clone({
     surface => $my_new_surface,
-    cutoff  => $my_new_cutoff,
   });
 
 Returns a new Quant::Framework::VolSurface instance. You can pass overrides to override an attribute value as it is on the original surface.

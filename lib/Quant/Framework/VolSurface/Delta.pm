@@ -242,7 +242,6 @@ USAGE:
 
   my $clone = $s->clone({
     surface => $my_new_surface,
-    cutoff  => $my_new_cutoff,
   });
 
 Returns a new cloned instance.
