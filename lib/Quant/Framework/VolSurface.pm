@@ -21,7 +21,6 @@ use Number::Closest::XS qw(find_closest_numbers_around);
 use Math::Function::Interpolator;
 
 use Quant::Framework::Utils::Types;
-use Quant::Framework::VolSurface::Cutoff;
 use Quant::Framework::VolSurface::Validator;
 use Quant::Framework::VolSurface::Utils;
 use Quant::Framework::Utils::Builder;
@@ -52,6 +51,18 @@ has underlying_config => (
     is       => 'ro',
     required => 1,
 );
+
+has document => (
+    is         => 'rw',
+    lazy_build => 1,
+);
+
+sub _build_document {
+    my $self = shift;
+
+    return $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, $self->for_date->epoch) // {} if $self->for_date;
+    return $self->chronicle_reader->get('volatility_surfaces', $self->symbol) // {};
+}
 
 has calendar => (
     is         => 'ro',
@@ -161,7 +172,7 @@ has surface => (
 
 sub _build_surface {
     my $self = shift;
-    return $self->document->{surfaces}->{$self->cutoff->code};
+    return $self->document->{surface};
 }
 
 =head2 default_vol_spread
@@ -1482,7 +1493,6 @@ sub get_existing_surface {
     return $self->_new_surface
         ? $self->new({
             underlying_config => $self->underlying_config,
-            cutoff            => $self->cutoff,
             chronicle_reader  => $self->chronicle_reader,
             chronicle_writer  => $self->chronicle_writer,
         })

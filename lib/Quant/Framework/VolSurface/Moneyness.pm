@@ -22,41 +22,6 @@ use List::Util qw(min first);
 use Storable qw( dclone );
 use JSON qw(from_json);
 
-=head2 for_date
-
-The date for which we wish data
-
-=cut
-
-has for_date => (
-    is      => 'ro',
-    isa     => 'Maybe[Date::Utility]',
-    default => undef,
-);
-
-has document => (
-    is         => 'rw',
-    lazy_build => 1,
-);
-
-sub _build_document {
-    my $self = shift;
-
-    my $document = $self->chronicle_reader->get('volatility_surfaces', $self->symbol);
-
-    if ($self->for_date and $self->for_date->epoch < Date::Utility->new($document->{date})->epoch) {
-        $document = $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, $self->for_date->epoch);
-
-        # This works around a problem with Volatility surfaces and negative dates to expiry.
-        # We have to use the oldest available surface.. and we don't really know when it
-        # was relative to where we are now.. so just say it's from the requested day.
-        # We do not allow saving of historical surfaces, so this should be fine.
-        $document //= {};
-    }
-
-    return $document;
-}
-
 =head2 save
 
 Saves current surface using chronicle writer
@@ -80,9 +45,8 @@ sub _document_content {
     my $self = shift;
 
     my %structure = (
-        surfaces       => {$self->cutoff->code => $self->surface},
+        surface        => $self->cutoff,
         date           => $self->recorded_date->datetime_iso8601,
-        master_cutoff  => $self->cutoff->code,
         symbol         => $self->symbol,
         type           => $self->type,
         spot_reference => $self->spot_reference,
@@ -373,8 +337,6 @@ sub clone {
         if (not exists $clone_args{spot_reference});
     $clone_args{underlying_config} = $self->underlying_config
         if (not exists $clone_args{underlying_config});
-    $clone_args{cutoff} = $self->cutoff
-        if (not exists $clone_args{cutoff});
 
     if (not exists $clone_args{surface}) {
         my $orig_surface = dclone($self->surface);
@@ -393,27 +355,6 @@ sub clone {
     $clone_args{chronicle_writer} = $self->chronicle_writer;
 
     return $self->meta->name->new(\%clone_args);
-}
-
-=head2 cutoff
-
-default to closing on the underlying.
-
-=cut
-
-has cutoff => (
-    is         => 'ro',
-    isa        => 'qf_cutoff_helper',
-    lazy_build => 1,
-    coerce     => 1,
-);
-
-sub _build_cutoff {
-    my $self = shift;
-
-    my $date = $self->for_date ? $self->for_date : Date::Utility->new;
-
-    return Quant::Framework::VolSurface::Cutoff->new('UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm);
 }
 
 no Moose;

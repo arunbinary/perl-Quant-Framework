@@ -20,58 +20,20 @@ extends 'Quant::Framework::VolSurface';
 
 use Date::Utility;
 use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness );
-use List::MoreUtils qw(none);
 use Math::Function::Interpolator;
 use Storable qw( dclone );
-use Try::Tiny;
-
-=head2 for_date
-
-The date for which we wish data
-
-=cut
-
-has for_date => (
-    is      => 'ro',
-    isa     => 'Maybe[Date::Utility]',
-    default => undef,
-);
 
 sub _document_content {
     my $self = shift;
 
     my %structure = (
-        surfaces      => $self->surfaces_to_save,
-        date          => $self->recorded_date->datetime_iso8601,
-        master_cutoff => $self->cutoff->code,
-        symbol        => $self->symbol,
-        type          => $self->type,
+        surface => $self->surface,
+        date    => $self->recorded_date->datetime_iso8601,
+        symbol  => $self->symbol,
+        type    => $self->type,
     );
 
     return \%structure;
-}
-
-has document => (
-    is         => 'rw',
-    lazy_build => 1,
-);
-
-sub _build_document {
-    my $self = shift;
-
-    my $document = $self->chronicle_reader->get('volatility_surfaces', $self->symbol);
-
-    if ($self->for_date and $self->for_date->epoch < Date::Utility->new($document->{date})->epoch) {
-        $document = $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, $self->for_date->epoch);
-
-        # This works around a problem with Volatility surfaces and negative dates to expiry.
-        # We have to use the oldest available surface.. and we don't really know when it
-        # was relative to where we are now.. so just say it's from the requested day.
-        # We do not allow saving of historical surfaces, so this should be fine.
-        $document //= {};
-    }
-
-    return $document;
 }
 
 =head2 save
@@ -234,133 +196,6 @@ sub _ensure_conversion_args {
     return \%new_args;
 }
 
-=head2 generate_surface_for_cutoff
-
-Transforms the surface to a given cutoff. Cutoff can be given either
-as a qf_cutoff_code string, or a Quant::Framework::VolSurface::Cutoff instance.
-
-Returns the cut surface data-structure (not a B::M::VS instance).
-
-=cut
-
-sub generate_surface_for_cutoff {
-    my ($self, $cutoff) = @_;
-
-    # Everything with a trailing 1 is from what we are transforming from.
-    # Everything else is what we're transforming to.
-
-    my $surface1 = $self;
-    $cutoff = Quant::Framework::VolSurface::Cutoff->new($cutoff) if (not ref $cutoff);
-    my $surface_hashref   = {};
-    my $underlying_config = $surface1->underlying_config;
-
-    foreach my $maturity (@{$surface1->term_by_day}) {
-        my $t1 = $surface1->cutoff->seconds_to_cutoff_time({
-            from     => $surface1->recorded_date,
-            maturity => $maturity,
-            calendar => $self->builder->build_trading_calendar,
-        });
-        my $t = $cutoff->seconds_to_cutoff_time({
-            from     => $surface1->recorded_date,
-            maturity => $maturity,
-            calendar => $self->builder->build_trading_calendar,
-        });
-
-        foreach my $delta (@{$surface1->deltas}) {
-            my $v1 = $surface1->get_volatility({
-                days  => $maturity,
-                delta => $delta,
-            });
-
-            my $v = $v1 * sqrt($t / $t1);
-            $surface_hashref->{$maturity}->{smile}->{$delta} = $v;
-
-            if (defined $surface1->surface->{$maturity}->{vol_spread}->{$delta}) {
-                $surface_hashref->{$maturity}->{vol_spread}->{$delta} = $surface1->surface->{$maturity}->{vol_spread}->{$delta};
-            }
-
-        }
-
-        if (my $tenor = $surface1->surface->{$maturity}->{tenor}) {
-            $surface_hashref->{$maturity}->{tenor} = $tenor;
-        }
-    }
-
-    return $surface_hashref;
-}
-
-has _default_cutoff_list => (
-    is      => 'ro',
-    isa     => 'ArrayRef',
-    default => sub { ['UTC 21:00', 'UTC 23:59'] },
-);
-
-=head2 surfaces_to_save
-
-The surfaces that will be saved on Chronicle
-
-=cut
-
-has surfaces_to_save => (
-    is         => 'ro',
-    isa        => 'HashRef',
-    lazy_build => 1,
-);
-
-sub _build_surfaces_to_save {
-    my $self = shift;
-
-    my $master_surface = $self->surface;
-    my %surfaces;
-    $surfaces{$self->cutoff->code} = $master_surface;
-
-    $surfaces{$_} = $self->generate_surface_for_cutoff($_) foreach @{$self->_default_cutoff_list};
-
-    return \%surfaces;
-}
-
-sub _build_surface {
-    my $self = shift;
-
-    my $doc    = $self->document;
-    my $cutoff = $self->cutoff->code;
-
-    return $doc->{surfaces}->{$cutoff} if $doc->{surfaces}->{$cutoff};
-
-    my $master_cutoff = $doc->{master_cutoff};
-    if (not $doc->{surfaces}->{$master_cutoff}) {
-        die('master surface is missing for ' . $self->symbol . ' on ' . $self->recorded_date->datetime_iso8601);
-    }
-
-    my $master_surface = __PACKAGE__->new(
-        symbol            => $self->symbol,
-        cutoff            => $master_cutoff,
-        for_date          => $self->for_date,
-        chronicle_reader  => $self->chronicle_reader,
-        chronicle_writer  => $self->chronicle_writer,
-        underlying_config => $self->underlying_config,
-    );
-    my $surface = $master_surface->generate_surface_for_cutoff($cutoff);
-    $self->_stores_surface($cutoff, $surface);
-
-    return $surface;
-}
-
-sub _stores_surface {
-    my ($self, $cutoff, $surface_hashref) = @_;
-
-    try {
-        my $doc = $self->document;
-        $doc->{surfaces} ||= {};
-        $doc->{surfaces}->{$cutoff} = $surface_hashref;
-    }
-    catch {
-        warn('Could not save ' . $cutoff . ' cutoff for ' . $self->symbol);
-    };
-
-    return;
-}
-
 sub _extrapolate_smile_down {
     my ($self, $days) = @_;
 
@@ -422,7 +257,6 @@ sub clone {
     $clone_args = dclone($args) if $args;
 
     $clone_args->{underlying_config} = $self->underlying_config if (not exists $clone_args->{underlying_config});
-    $clone_args->{cutoff}            = $self->cutoff            if (not exists $clone_args->{cutoff});
 
     if (not exists $clone_args->{surface}) {
         my $orig_surface = dclone($self->surface);
@@ -437,31 +271,6 @@ sub clone {
     $clone_args->{chronicle_writer} = $self->chronicle_writer;
 
     return $self->meta->name->new($clone_args);
-}
-
-=head2 cutoff
-
-cutoff is New York 10:00 when we save new volatility delta surfaces. (Surfaces that we get from Bloomberg)
-
-cutoff is UTC 23:59 or UTC 21:00 for contract pricing.
-
-=cut
-
-has cutoff => (
-    is         => 'ro',
-    isa        => 'qf_cutoff_helper',
-    lazy_build => 1,
-    coerce     => 1,
-);
-
-sub _build_cutoff {
-    my $self = shift;
-
-    my $date = $self->for_date ? $self->for_date : Date::Utility->new;
-    my $cutoff_string =
-        $self->_new_surface ? 'New York 10:00' : 'UTC ' . $self->builder->build_trading_calendar->standard_closing_on($date)->time_hhmm;
-
-    return Quant::Framework::VolSurface::Cutoff->new($cutoff_string);
 }
 
 no Moose;
