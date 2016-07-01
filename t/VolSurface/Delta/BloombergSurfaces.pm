@@ -9,23 +9,12 @@ use Cwd qw( abs_path );
 use File::Find;
 use IO::File;
 use Text::CSV;
-
 use Date::Utility;
 
-use Quant::Framework::VolSurface::Cutoff;
-
 sub get {
-    my ($self, $symbol, $timestamp, $cutoff) = @_;
-    my $surface;
+    my ($self, $symbol, $timestamp) = @_;
 
-    if (not $cutoff and scalar keys %{$self->surfaces->{$symbol}->{$timestamp}} == 1) {
-        my @surfaces = values %{$self->surfaces->{$symbol}->{$timestamp}};
-        $surface = $surfaces[0];
-    } else {
-        $surface = $self->surfaces->{$symbol}->{$timestamp}->{$cutoff};
-    }
-
-    return $surface;
+    return $self->surfaces->{$symbol}->{$timestamp};
 }
 
 has chronicle_reader => (
@@ -79,7 +68,7 @@ sub _build_surfaces {
         my @surfaces = $self->_get_surfaces_from_file($filename);
 
         foreach my $s (@surfaces) {
-            $all_surfaces->{$s->underlying_config->symbol}->{$s->recorded_date->datetime_yyyymmdd_hhmmss}->{$s->cutoff->code} = $s;
+            $all_surfaces->{$s->underlying_config->symbol}->{$s->recorded_date->datetime_yyyymmdd_hhmmss} = $s;
         }
     }
 
@@ -116,7 +105,6 @@ sub _get_surfaces_from_file {
         next ROW if (not $symbol);
 
         my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config($symbol);
-        my $cutoff = $row->[4] ? Quant::Framework::VolSurface::Cutoff->new($row->[4]) : undef;
 
         # skip past the two "config" lines; they don't tell
         # us anything we don't already know.
@@ -161,8 +149,6 @@ sub _get_surfaces_from_file {
             chronicle_reader => $self->chronicle_reader,
             chronicle_writer => $self->chronicle_writer,
         };
-
-        $args->{cutoff} = $cutoff if $cutoff;
 
         push @surfaces, Quant::Framework::VolSurface::Delta->new($args);
     }
