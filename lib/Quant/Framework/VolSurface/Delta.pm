@@ -188,6 +188,8 @@ Calculate the requested smile from volatility surface.
 sub get_smile {
     my ($self, $from, $to) = @_;
 
+    $DB::single=1;
+    # each smile is calculated on the fly.
     my $number_of_days = ($to->epoch - $from->epoch) / 86400;
     my $variances_from = $self->_get_variances($from);
     my $variances_to   = $self->_get_variances($to);

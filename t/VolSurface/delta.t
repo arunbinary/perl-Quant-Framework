@@ -34,15 +34,20 @@ subtest 'get_volatility for different expiries ' => sub {
     plan tests => 5;
     my $surface = _get_surface();
 
+    my $now = Date::Utility->new;
     throws_ok { $surface->get_volatility({delta => 50, days => undef}) }
-    qr/Must pass exactly one of/i,
-        "throws exception when expiry is undef in get_vol";
-    throws_ok { $surface->get_volatility({delta => 50, days => 1, expiry_date => '12-Jan-12'}) }
-    qr/Must pass exactly/i,
-        "throws exception when more than one expiry format is passed into get_volatility";
-    lives_ok { $surface->get_volatility({delta => 50, expiry_date => Date::Utility->new('12-Jan-12')}) } "can get volatility for expiry_date";
-    lives_ok { $surface->get_volatility({delta => 50, days        => 1}) } "can get volatility for days";
-    lives_ok { $surface->get_volatility({delta => 50, tenor       => '1W'}) } "can get volatility for tenor";
+    qr/Must pass in two dates/i,
+        "throws exception when period is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, from => $now}) }
+    qr/Must pass in two dates/i,
+        "throws exception when \$to is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, to => $now}) }
+    qr/Must pass in two dates/i,
+        "throws exception when \$from is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, to => $now->minus_time_interval('1s'), from => $now}) }
+    qr/Inverted dates/i,
+        "throws exception when \$from and \$to are inverted in get_vol";
+    lives_ok { $surface->get_volatility({delta => 50, from => $now, to => $now->plus_time_interval('1s')}) } "can get volatility when mandatory arguments are provided";
 };
 
 subtest 'get_volatility for different sought points' => sub {
@@ -53,9 +58,11 @@ subtest 'get_volatility for different sought points' => sub {
     qr/exactly one of/i,
         "throws exception when more than on sough points are parsed in get_volatility";
     throws_ok { $surface->get_volatility({strike => undef, days => 1}) } qr/exactly one/i, "throws exception if strike is undef";
-    lives_ok { $surface->get_volatility({strike    => 76.5, days => 1}) } "can get_vol for strike";
-    lives_ok { $surface->get_volatility({delta     => 50,   days => 1}) } "can get_vol for delta";
-    lives_ok { $surface->get_volatility({moneyness => 100,  days => 1}) } "can get_vol for moneyness";
+    my $from = Date::Utility->new;
+    my $to = $from->plus_time_interval('1s');
+    lives_ok { $surface->get_volatility({strike    => 76.5, from => $from, to => $to}) } "can get_vol for strike";
+    lives_ok { $surface->get_volatility({delta     => 50,   from => $from, to => $to}) } "can get_vol for delta";
+    lives_ok { $surface->get_volatility({moneyness => 100,  from => $from, to => $to}) } "can get_vol for moneyness";
 };
 
 subtest 'get_smile' => sub {
