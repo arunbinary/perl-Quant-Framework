@@ -7,7 +7,7 @@ our $VERSION = '0.27';
 
 =head1 NAME
 
-Quant::Framework - Gateway to fetch market-data from Quant::Framework 
+Quant::Framework - Gateway to fetch market-data from Quant::Framework
 
 =head1 VERSION
 

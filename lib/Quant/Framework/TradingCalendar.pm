@@ -14,7 +14,7 @@ One important feature of this module is that it is designed for READING informat
 
 =head1 USAGE
 
-    my $calendar = Quant::Framework::TradingCalendar->new({ 
+    my $calendar = Quant::Framework::TradingCalendar->new({
         symbol => 'LSE',
         chronicle_reader => $chronicle_r,
     });
@@ -320,15 +320,11 @@ Returns true if trading is done on the day of a given Date::Utility.
 sub trades_on {
     my ($self, $when) = @_;
 
-    state %trades_cache;
-
     my $really_when = $self->trading_date_for($when);
-    my $days_since  = $really_when->days_since_epoch;
     my $symbol      = $self->symbol;
-    $trades_cache{$symbol}->{$days_since} //=
-        (@{$self->trading_days_list}[$really_when->day_of_week] and not $self->has_holiday_on($really_when)) ? 1 : 0;
+    my $result      = (@{$self->trading_days_list}[$really_when->day_of_week] && !$self->has_holiday_on($really_when)) ? 1 : 0;
 
-    return $trades_cache{$symbol}->{$days_since};
+    return $result;
 }
 
 =head2 trade_date_after
