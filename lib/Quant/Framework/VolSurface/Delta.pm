@@ -75,6 +75,12 @@ has atm_spread_point => (
     default => '50',
 );
 
+=head2 variance_table
+
+A variance surface. Converted from raw volatility input surface.
+
+=cut
+
 has variance_table => (
     is         => 'ro',
     lazy_build => 1,
@@ -106,6 +112,12 @@ sub _build_variance_table {
 
     return \%table;
 }
+
+=head2 surface
+
+Volatility surface in a hash reference.
+
+=cut
 
 has surface => (
     is         => 'ro',
@@ -167,12 +179,18 @@ sub get_volatility {
     });
 }
 
+=head2 get_smile
+
+Calculate the requested smile from volatility surface.
+
+=cut
+
 sub get_smile {
     my ($self, $from, $to) = @_;
 
     my $number_of_days = ($to->epoch - $from->epoch) / 86400;
-    my $variances_from = $self->get_variances($from);
-    my $variances_to   = $self->get_variances($to);
+    my $variances_from = $self->_get_variances($from);
+    my $variances_to   = $self->_get_variances($to);
     my $smile;
 
     foreach my $delta (@{$self->deltas}) {
@@ -182,7 +200,7 @@ sub get_smile {
     return $smile;
 }
 
-sub get_variances {
+sub _get_variances {
     my ($self, $date) = @_;
 
     my $epoch = $date->epoch;
@@ -192,8 +210,8 @@ sub get_variances {
 
     my @available_tenors = sort { $a <=> $b } keys %{$table};
     my @closest = map { Date::Utility->new($_) } @{find_closest_numbers_around($date->epoch, \@available_tenors, 2)};
-    my $weight = $self->get_weight($closest[0], $date);
-    my $weight2 = $weight + $self->get_weight($date, $closest[1]);
+    my $weight = $self->_get_weight($closest[0], $date);
+    my $weight2 = $weight + $self->_get_weight($date, $closest[1]);
 
     my %variances;
     foreach my $delta (@{$self->deltas}) {
@@ -205,7 +223,7 @@ sub get_variances {
     return \%variances;
 }
 
-sub get_weight {
+sub _get_weight {
     my ($self, $date1, $date2) = @_;
 
     # always starts from surface recorded date to $date
