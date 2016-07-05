@@ -18,6 +18,8 @@ use Moose;
 
 extends 'Quant::Framework::VolSurface';
 
+use Number::Closest::XS qw(find_closest_numbers_around);
+use List::Util qw(min);
 use Date::Utility;
 use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness );
 use Math::Function::Interpolator;
@@ -73,6 +75,49 @@ has atm_spread_point => (
     default => '50',
 );
 
+has variance_table => (
+    is         => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_variance_table {
+    my $self = shift;
+
+    my $raw_surface    = $self->surface;
+    my $effective_date = $self->effective_date;
+    # New York 10:00
+    my $ny_offset_from_gmt     = $effective_date->timezone_offset('America/New_York')->hours;
+    my $seconds_after_midnight = $effective_date->plus_time_interval(10 - $ny_offset_from_gmt . 'h')->seconds_after_midnight;
+
+    # keys are tenor in epoch, values are associated variances.
+    my %table = (
+        $self->recorded_date->epoch => {
+            25 => 0,
+            50 => 0,
+            75 => 0
+        });
+    foreach my $tenor (sort { $a <=> $b } keys %$raw_surface) {
+        my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
+        foreach my $delta (@{$self->deltas}) {
+            my $volatility = $raw_surface->{$tenor}{smile}{$delta};
+            $table{$epoch}{$delta} = $volatility**2 * $tenor;
+        }
+    }
+
+    return \%table;
+}
+
+has surface => (
+    is         => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_surface {
+    my $self = shift;
+
+    return $self->document->{surfaces}{'New York 10:00'} // {};
+}
+
 =head2 get_volatility
 
 Given a maturity of some form and a barrier of some form, gives you a vol
@@ -104,22 +149,94 @@ sub get_volatility {
     # args validity checks
     die("Must pass exactly one of delta, strike or moneyness to get_volatility.")
         if (scalar(grep { defined $args->{$_} } qw(delta strike moneyness)) != 1);
-    die("Must pass exactly one of days, tenor or expirty_date to get_volatility.")
-        if (scalar(grep { defined $args->{$_} } qw(days tenor expiry_date)) != 1);
 
-    if (not $args->{days}) {
-        $args->{days} = $self->_convert_expiry_to_day($args);
-    }
+    die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
-    my $sought_point =
+    die 'Inverted dates[from=' . $args->{from}->datetime . ' to= ' . $args->{to}->datetime . '] to get volatility.'
+        if $args->{from}->epoch > $args->{to}->epoch;
+
+    my $delta =
           (defined $args->{delta})  ? $args->{delta}
         : (defined $args->{strike}) ? $self->_convert_strike_to_delta($args)
         :                             $self->_convert_moneyness_to_delta($args);
 
-    return $self->SUPER::get_volatility({
-        sought_point => $sought_point,
-        days         => $args->{days},
+    die 'Delta is negative.' if $delta < 0;
+
+    my $smile = $self->get_smile($args->{from}, $args->{to});
+
+    return $smile->{$delta} if $smile->{$delta};
+
+    return $self->interpolate({
+        smile        => $smile,
+        sought_point => $delta,
     });
+}
+
+sub get_smile {
+    my ($self, $from, $to) = @_;
+
+    my $number_of_days = ($to->epoch - $from->epoch) / 86400;
+    my $variances_from = $self->get_variances($from);
+    my $variances_to   = $self->get_variances($to);
+    my $smile;
+
+    foreach my $delta (@{$self->deltas}) {
+        $smile->{$delta} = sqrt(($variances_to->{$delta} - $variances_from->{$delta}) / $number_of_days);
+    }
+
+    return $smile;
+}
+
+sub get_variances {
+    my ($self, $date) = @_;
+
+    my $epoch = $date->epoch;
+    my $table = $self->variance_table;
+
+    return $table->{$epoch} if $table->{$epoch};
+
+    my @available_tenors = sort { $a <=> $b } keys %{$table};
+    my @closest = map { Date::Utility->new($_) } @{find_closest_numbers_around($date->epoch, \@available_tenors, 2)};
+    my $weight = $self->get_weight($closest[0], $date);
+    my $weight2 = $weight + $self->get_weight($date, $closest[1]);
+
+    my %variances;
+    foreach my $delta (@{$self->deltas}) {
+        my $var1 = $table->{$closest[0]->epoch}{$delta};
+        my $var2 = $table->{$closest[1]->epoch}{$delta};
+        $variances{$delta} = $var1 + ($var2 - $var1) / $weight2 * $weight;
+    }
+
+    return \%variances;
+}
+
+sub get_weight {
+    my ($self, $date1, $date2) = @_;
+
+    # always starts from surface recorded date to $date
+    my $time_diff       = $date2->epoch - $date1->epoch;
+    my $weight_interval = 4 * 3600;
+    my @dates           = ($date1->epoch);
+
+    if ($time_diff <= $weight_interval) {
+        push @dates, $date2->epoch;
+    } else {
+        my $start = $date1->epoch;
+        while ($start < $date2->epoch) {
+            my $to_add = min($date2->epoch - $start, $weight_interval);
+            $start += $to_add;
+            push @dates, $start;
+        }
+    }
+
+    my $calendar     = $self->builder->build_trading_calendar;
+    my $total_weight = 0;
+    for (my $i = 0; $i < $#dates; $i++) {
+        my $dt = $dates[$i + 1] - $dates[$i];
+        $total_weight += $calendar->weight_on(Date::Utility->new($dates[$i])) * $dt / 86400;
+    }
+
+    return $total_weight;
 }
 
 =head2 interpolate
@@ -163,15 +280,16 @@ sub _ensure_conversion_args {
     my %new_args          = %{$args};
     my $underlying_config = $self->underlying_config;
 
-    $new_args{t}                ||= $new_args{days} / 365;
+    $new_args{t} ||= ($args->{to}->epoch - $args->{from}->epoch) / (365 * 86400);
     $new_args{spot}             ||= $underlying_config->spot;
     $new_args{premium_adjusted} ||= $underlying_config->{market_convention}->{delta_premium_adjusted};
     $new_args{r_rate}           ||= $self->builder->build_interest_rate->interest_rate_for($new_args{t});
     $new_args{q_rate}           ||= $self->builder->build_dividend->dividend_rate_for($new_args{t});
 
     $new_args{atm_vol} ||= $self->get_volatility({
-        days  => $new_args{days},
         delta => 50,
+        from  => $args->{from},
+        to    => $args->{to},
     });
 
     return \%new_args;
