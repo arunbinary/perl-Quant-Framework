@@ -120,26 +120,21 @@ sub _build_surface {
 
 =head2 get_volatility
 
-Given a maturity of some form and a barrier of some form, gives you a vol
-from the surface.
+Expects 3 mandatory arguments as input.
 
-The barrier can be specified either as a strike (strike => $bet->barrier) or a
-delta (delta => 25).
+1) from - Date::Utility object
+2) to - Date::Utility object
+3) delta | strike | moneyness.
 
-The maturity can be given either as a number of days (days => 7), an expiry date
-(expiry_date => Date::Utility->new) or a tenor (tenor => 'ON').
-
-When given an expiry_date, get_volatility assumes that you want an integer number
-of days, and calculates that based on the number of vol rollovers between the
-recorded_date and the given expiry. So if the rollover is at GMT2200 (NY1700) and
-recorded_date is 2012-02-01 10:00:00, a given expiry of 2012-02-02 10:00:00 would
-give you the ON vol, but an expiry of 2012-02-02 23:59:59 would give a 2-day vol.
+Calculates volatility from the surface based input parameters.
 
 USAGE:
 
-  my $vol = $s->get_volatility({delta => 25, days => 7});
-  my $vol = $s->get_volatility({strike => $bet->barrier, tenor => '1M'});
-  my $vol = $s->get_volatility({delta => 50, expiry_date => Date::Utility->new});
+  my $from = Date::Utility->new('2016-06-01 10:00:00');
+  my $to   = Date::Utility->new('2016-06-01 15:00:00');
+  my $vol  = $s->get_volatility({delta => 25, from => $from, to => $to});
+  my $vol  = $s->get_volatility({strike => $bet->barrier, from => $from, to => $to});
+  my $vol  = $s->get_volatility({delta => 50, from => $from, to => $to});
 
 =cut
 
