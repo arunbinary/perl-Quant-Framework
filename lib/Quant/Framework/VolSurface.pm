@@ -1324,9 +1324,9 @@ Returns the rr and bf values for a given day
 =cut
 
 sub get_market_rr_bf {
-    my ($self, $day) = @_;
+    my ($self, $from, $to) = @_;
 
-    my %smile = %{$self->get_smile($day)};
+    my %smile = %{$self->get_smile($from, $to)};
 
     return $self->get_rr_bf_for_smile(\%smile);
 }

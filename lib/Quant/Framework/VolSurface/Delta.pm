@@ -98,9 +98,11 @@ sub _build_variance_table {
     # keys are tenor in epoch, values are associated variances.
     my %table = (
         $self->recorded_date->epoch => {
+            10 => 0,
             25 => 0,
             50 => 0,
-            75 => 0
+            75 => 0,
+            90 => 0,
         });
     foreach my $tenor (sort { $a <=> $b } keys %$raw_surface) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
@@ -162,6 +164,13 @@ sub get_volatility {
     die 'Inverted dates[from=' . $args->{from}->datetime . ' to= ' . $args->{to}->datetime . '] to get volatility.'
         if $args->{from}->epoch > $args->{to}->epoch;
 
+    # This sanity check prevents negative variance
+    die 'Requested dates are too far in the past ['
+        . $args->{from}->datetime
+        . '] with surface recorded date ['
+        . $self->recorded_date->datetime . ']'
+        if $args->{from}->epoch < $self->recorded_date->epoch;
+
     my $delta =
           (defined $args->{delta})  ? $args->{delta}
         : (defined $args->{strike}) ? $self->_convert_strike_to_delta($args)
@@ -188,11 +197,10 @@ Calculate the requested smile from volatility surface.
 sub get_smile {
     my ($self, $from, $to) = @_;
 
-    $DB::single=1;
     # each smile is calculated on the fly.
     my $number_of_days = ($to->epoch - $from->epoch) / 86400;
-    my $variances_from = $self->_get_variances($from);
-    my $variances_to   = $self->_get_variances($to);
+    my $variances_from = $self->get_variances($from);
+    my $variances_to   = $self->get_variances($to);
     my $smile;
 
     foreach my $delta (@{$self->deltas}) {
@@ -202,7 +210,13 @@ sub get_smile {
     return $smile;
 }
 
-sub _get_variances {
+=head2 get_variances
+
+Calculate the variance for a given date based on volatility surface data.
+
+=cut
+
+sub get_variances {
     my ($self, $date) = @_;
 
     my $epoch = $date->epoch;
@@ -212,8 +226,8 @@ sub _get_variances {
 
     my @available_tenors = sort { $a <=> $b } keys %{$table};
     my @closest = map { Date::Utility->new($_) } @{find_closest_numbers_around($date->epoch, \@available_tenors, 2)};
-    my $weight = $self->_get_weight($closest[0], $date);
-    my $weight2 = $weight + $self->_get_weight($date, $closest[1]);
+    my $weight = $self->get_weight($closest[0], $date);
+    my $weight2 = $weight + $self->get_weight($date, $closest[1]);
 
     my %variances;
     foreach my $delta (@{$self->deltas}) {
@@ -225,10 +239,38 @@ sub _get_variances {
     return \%variances;
 }
 
-sub _get_weight {
+=head2 get_weight
+
+Get the weight between to given dates.
+
+=cut
+
+sub get_weight {
     my ($self, $date1, $date2) = @_;
 
-    # always starts from surface recorded date to $date
+    my @date_chunks;
+    if ($date2->days_between($date1)) {
+        my $eod = $date1->truncate_to_day->plus_time_interval('23h59m59s');
+        @date_chunks = map { $self->_break_dates($_->[0], $_->[1]) } ([$date1, $eod], [$eod->plus_time_interval('1s'), $date2]);
+    } else {
+        @date_chunks = $self->_break_dates($date1, $date2);
+    }
+
+    my $calendar     = $self->builder->build_trading_calendar;
+    my $total_weight = 0;
+    foreach my $dates (@date_chunks) {
+        for (my $i = 1; $i <= $#$dates; $i++) {
+            my $dt = $dates->[$i] - $dates->[$i - 1];
+            $total_weight += $calendar->weight_on(Date::Utility->new($dates->[$i])) * $dt / 86400;
+        }
+    }
+
+    return $total_weight;
+}
+
+sub _break_dates {
+    my ($self, $date1, $date2) = @_;
+
     my $time_diff       = $date2->epoch - $date1->epoch;
     my $weight_interval = 4 * 3600;
     my @dates           = ($date1->epoch);
@@ -244,14 +286,7 @@ sub _get_weight {
         }
     }
 
-    my $calendar     = $self->builder->build_trading_calendar;
-    my $total_weight = 0;
-    for (my $i = 0; $i < $#dates; $i++) {
-        my $dt = $dates[$i + 1] - $dates[$i];
-        $total_weight += $calendar->weight_on(Date::Utility->new($dates[$i])) * $dt / 86400;
-    }
-
-    return $total_weight;
+    return \@dates;
 }
 
 =head2 interpolate

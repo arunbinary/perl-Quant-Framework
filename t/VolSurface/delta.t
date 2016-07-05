@@ -31,71 +31,58 @@ Quant::Framework::Utils::Test::create_doc(
 my @mocked_builders;
 
 subtest 'get_volatility for different expiries ' => sub {
-    plan tests => 5;
     my $surface = _get_surface();
 
     my $now = Date::Utility->new;
     throws_ok { $surface->get_volatility({delta => 50, days => undef}) }
-    qr/Must pass in two dates/i,
+    qr/Must pass two dates/i,
         "throws exception when period is undef in get_vol";
     throws_ok { $surface->get_volatility({delta => 50, from => $now}) }
-    qr/Must pass in two dates/i,
+    qr/Must pass two dates/i,
         "throws exception when \$to is undef in get_vol";
     throws_ok { $surface->get_volatility({delta => 50, to => $now}) }
-    qr/Must pass in two dates/i,
+    qr/Must pass two dates/i,
         "throws exception when \$from is undef in get_vol";
     throws_ok { $surface->get_volatility({delta => 50, to => $now->minus_time_interval('1s'), from => $now}) }
     qr/Inverted dates/i,
         "throws exception when \$from and \$to are inverted in get_vol";
-    lives_ok { $surface->get_volatility({delta => 50, from => $now, to => $now->plus_time_interval('1s')}) } "can get volatility when mandatory arguments are provided";
+    $now = $surface->recorded_date;
+    throws_ok { $surface->get_volatility({delta => 50, to => $now->plus_time_interval('1s'), from => $now->minus_time_interval('1s')}) }
+    qr/Requested dates are too far/i,
+        "throws exception when is in the past of surface recorded date in get_vol";
+    lives_ok { $surface->get_volatility({delta => 50, from => $now, to => $now->plus_time_interval('1s')}) }
+    "can get volatility when mandatory arguments are provided";
 };
 
 subtest 'get_volatility for different sought points' => sub {
-    plan tests => 5;
     my $surface = _get_surface();
 
     throws_ok { $surface->get_volatility({strike => 76.8, delta => 50, days => 1}) }
     qr/exactly one of/i,
         "throws exception when more than on sough points are parsed in get_volatility";
     throws_ok { $surface->get_volatility({strike => undef, days => 1}) } qr/exactly one/i, "throws exception if strike is undef";
-    my $from = Date::Utility->new;
-    my $to = $from->plus_time_interval('1s');
+    my $from = $surface->recorded_date;
+    my $to   = $from->plus_time_interval('1s');
     lives_ok { $surface->get_volatility({strike    => 76.5, from => $from, to => $to}) } "can get_vol for strike";
     lives_ok { $surface->get_volatility({delta     => 50,   from => $from, to => $to}) } "can get_vol for delta";
     lives_ok { $surface->get_volatility({moneyness => 100,  from => $from, to => $to}) } "can get_vol for moneyness";
 };
 
 subtest 'get_smile' => sub {
-    plan tests => 19;
     my $surface = _get_surface();
+    my $from    = $surface->recorded_date;
+    my $to      = $from->plus_time_interval('1d');
 
-    my $smile;
-    lives_ok { $smile = $surface->get_smile(1) } "can get_smile for term that already exist on the surface";
-    is($smile->{25}, 0.2, "correct value for 25D");
-    is($smile->{50}, 0.1, "correct value for 50D");
-    is($smile->{75}, 0.3, "correct value for 75D");
+    my $smile = $surface->get_smile($from, $to);
+    is $smile->{25}, 0.158943543966074,  'volatility for 25D';
+    is $smile->{50}, 0.0794717719830371, 'volatility for 50D';
+    is $smile->{75}, 0.238415315949111,  'volatility for 75D';
 
-    lives_ok { $smile = $surface->get_smile(3) } "can get_smile for interpolated term on the surface";
-    my $D25 = $smile->{25};
-    my $D50 = $smile->{50};
-    my $D75 = $smile->{75};
-    cmp_ok($D25, "<", 0.26, "25D for the interpolated 3-day smile if less than 7-day 25D ");
-    cmp_ok($D25, ">", 0.2,  "25D for the interpolated 3-day smile if more than 1-day 25D ");
-    cmp_ok($D50, "<", 0.22, "50D for the interpolated 3-day smile if less than 7-day 50D ");
-    cmp_ok($D50, ">", 0.1,  "50D for the interpolated 3-day smile if more than 1-day 50D ");
-    cmp_ok($D75, "<", 0.40, "75D for the interpolated 3-day smile if less than 7-day 75D ");
-    cmp_ok($D75, ">", 0.3,  "75D for the interpolated 3-day smile if more than 1-day 75D ");
-
-    lives_ok { $smile = $surface->get_smile(0.5) } "can get_smile for term less than the minimum term on the surface";
-    is($smile->{25}, 0.2 + 0.0225, "correct value for 25D");
-    is($smile->{50}, 0.1,          "correct value for 50D");    # ATM stays the same
-    is($smile->{75}, 0.3 - 0.0225, "correct value for 75D");
-
-    lives_ok { $smile = $surface->get_smile(366) } "can get_smile for term more than the maximum term on the surface";
-    # Just return the highest term smile
-    is($smile->{25}, 0.324, "correct value for 25D");
-    is($smile->{50}, 0.3,   "correct value for 50D");
-    is($smile->{75}, 0.45,  "correct value for 75D");
+    my $later_date = $from->plus_time_interval('3d');
+    my $smile3 = $surface->get_smile($from, $later_date);
+    cmp_ok $smile3->{25}, '!=', $smile->{25}, 'volatility for 25D is different when both dates of the requested date is on different period';
+    cmp_ok $smile3->{50}, '!=', $smile->{50}, 'volatility for 50D is different when both dates of the requested date is on different period';
+    cmp_ok $smile3->{75}, '!=', $smile->{75}, 'volatility for 75D is different when both dates of the requested date is on different period';
 };
 
 subtest set_smile => sub {
@@ -218,7 +205,8 @@ subtest get_market_rr_bf => sub {
                     }}}});
 
     my $value;
-    lives_ok { $value = $surface->get_market_rr_bf(7) } "can get market RR and BF values";
+    lives_ok { $value = $surface->get_market_rr_bf($surface->recorded_date, $surface->recorded_date->plus_time_interval('2d')) }
+    "can get market RR and BF values";
     ok(looks_like_number($value->{RR_25}), "RR_25 is a number");
     ok(looks_like_number($value->{BF_25}), "BF_25 is a number");
     ok(looks_like_number($value->{ATM}),   "ATM is a number");
@@ -357,7 +345,7 @@ subtest cloning => sub {
                         75 => 0.55
                     }}
             },
-            recorded_date   => Date::Utility->new('20-Jan-12'),
+            recorded_date => Date::Utility->new('20-Jan-12'),
         });
 
     isnt($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone with overrides: underlying.');
@@ -365,111 +353,71 @@ subtest cloning => sub {
     isnt($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone with overrides: recorded_date.');
 };
 
-subtest 'get_volatility, part 1.' => sub {
-    my $expected_vols_delta = {
-        7 => {
+subtest 'variance table' => sub {
+    my $monday_bef_ro = Date::Utility->new('2016-07-04 18:00:00');
+    my $surface_data  = {
+        1 => {
             smile => {
-                25 => 0.17,
-                50 => 0.16,
+                25 => 0.2,
+                50 => 0.19,
                 75 => 0.22
             },
-            vol_spread => {50 => 0.1},
-        },
-        14 => {
-            smile => {
-                25 => 0.17,
-                50 => 0.152,
-                75 => 0.218
-            },
-            vol_spread => {50 => 0.1},
-        },
-        30 => {
-            smile => {
-                25 => 0.173,
-                50 => 0.15,
-                75 => 0.213
-            },
-            vol_spread => {50 => 0.1},
-        },
-        60 => {
-            smile => {
-                25 => 0.183,
-                50 => 0.158,
-                75 => 0.215
-            },
-            vol_spread => {50 => 0.1},
-        },
-        91 => {
-            smile => {
-                25 => 0.189,
-                50 => 0.167,
-                75 => 0.217
-            },
-            vol_spread => {50 => 0.1},
-        },
-        182 => {
-            smile => {
-                25 => 0.202,
-                50 => 0.183,
-                75 => 0.222
-            },
-            vol_spread => {
-                50 => 0.1,
-            }
-        },
+            atm_spread => {50 => 0.01}}};
+    my $args = {
+        underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY'),
+        recorded_date     => $monday_bef_ro,
+        surface           => $surface_data,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+        save              => 0,
     };
-
-    my @days_to_expiry = sort { $a <=> $b } keys %{$expected_vols_delta};
-
-    plan tests => scalar(@days_to_expiry) * 6 + 5;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            surface           => $expected_vols_delta,
-            recorded_date     => Date::Utility->new,
-            save              => 0,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    cmp_deeply(\@days_to_expiry, $surface->term_by_day, 'Term structures (delta) are same.');
-    # Test that delta object is populated correctly
-    foreach my $day (@days_to_expiry) {
-        foreach my $delta (50, 75, 25) {
-            my $vol;
-            lives_ok {
-                $vol = $surface->get_volatility({
-                    days  => $day,
-                    delta => $delta,
-                });
-            }
-            'Can get volatility from delta surface. delta: ' . $delta;
-
-            # The market quote vols (non-interpolated) must agree
-            cmp_ok(
-                $vol, '==',
-                $expected_vols_delta->{$day}->{smile}->{$delta},
-                "$delta delta Vol for $day days is $expected_vols_delta->{$day}->{smile}->{$delta}"
-            );
-        }
+    my $surface = Quant::Framework::Utils::Test::create_doc('volsurface_delta', $args);
+    is $surface->variance_table->{$surface->effective_date->plus_time_interval('1d14h')->epoch}->{50}, 0.19**2 * 1, 'variance is correct';
+    is $surface->effective_date->date, $monday_bef_ro->date, 'effective date is on the same day before rollover';
+    lives_ok {
+        my @expected = ($monday_bef_ro->epoch, $surface->effective_date->plus_time_interval('1d14h')->epoch);
+        cmp_bag([keys %{$surface->variance_table}], \@expected, 'correct dates in variance table');
     }
+    'variance table';
 
-    # Test format given for expiries.
-    my @test_data = ('1.003', 8 / 86400, 1 / 86400, '1.003e-05');
-
-    foreach my $day (@test_data) {
-        lives_ok {
-            my $vol = $surface->get_volatility({
-                days        => $day,
-                delta       => 50,
-                extrapolate => 0,
-            });
-        }
-        'Can get volatility from delta surface.';
+    $args->{recorded_date} = Date::Utility->new('2016-07-04 23:00:00');
+    $surface = Quant::Framework::Utils::Test::create_doc('volsurface_delta', $args);
+    is $surface->effective_date->date, $monday_bef_ro->plus_time_interval('1d')->date, 'effective date is next day';
+    lives_ok {
+        my @expected = ($args->{recorded_date}->epoch, Date::Utility->new('2016-07-06 14:00:00')->epoch);
+        cmp_bag([keys %{$surface->variance_table}], \@expected, 'correct dates in variance table');
     }
+    'variance table';
+};
+
+subtest 'get weight' => sub {
+    my $trading_day        = Date::Utility->new('2016-07-04');
+    my $weekend            = Date::Utility->new('2016-07-03');
+    my $trading_day_weight = 1;
+    my $weekend_weight     = 0.5;
+    my $surface            = _get_surface();
+
+    is $surface->get_weight($trading_day, $trading_day->plus_time_interval('4h')), 1 / 6, 'correct weight';
+    is $surface->get_weight($trading_day, $trading_day->plus_time_interval('6h')), 1 / 4, 'correct weight';
+    is $surface->get_weight($weekend->plus_time_interval('18h'), $trading_day->plus_time_interval('6h')), (21599 / 86400 * 0.06) + (1 / 4),
+        'correct weight for cross day';
+};
+
+subtest 'get variance' => sub {
+    my $surface  = _get_surface();
+    my $expected = {
+        25 => 0.04,
+        50 => 0.01,
+        75 => 0.09,
+    };
+    my $effective_date = $surface->effective_date;
+    is_deeply $surface->get_variances($effective_date->plus_time_interval('1d14h')), $expected, 'correct variances retrieved';
+    # as period decreases, so does variance.
+    note('assuming variance is equally distributed');
+    ok $surface->get_variances($effective_date->plus_time_interval('1h'))->{50} <
+        $surface->get_variances($effective_date->plus_time_interval('2h'))->{50}, 'variance of 1h < variance of 2h';
+    ok $surface->get_variances($effective_date->plus_time_interval('2h'))->{50} <
+        $surface->get_variances($effective_date->plus_time_interval('3h'))->{50}, 'variance of 2h < variance of 3h';
 };
 
 subtest 'save surface to chronicle' => sub {
@@ -593,21 +541,14 @@ subtest _is_tenor => sub {
 };
 
 subtest 'Private method _get_initial_rr' => sub {
-    plan tests => 2;
-
     my $ul                 = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
     my $surface            = _get_surface({underlying_config => $ul});
+    my $from               = $surface->recorded_date;
     my $first_market_point = $surface->original_term_for_smile->[0];
-    my $market             = $surface->get_market_rr_bf($first_market_point);
+    my $to                 = $from->plus_time_interval($first_market_point . 'd');
+    my $market             = $surface->get_market_rr_bf($from, $to);
     my %initial_rr         = %{$surface->_get_initial_rr($market)};
     is($initial_rr{RR_25}, 0.1 * $market->{RR_25}, 'correct interpolated RR');
-
-    $ul                 = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
-    $surface            = _get_surface({underlying_config => $ul});
-    $first_market_point = $surface->original_term_for_smile->[0];
-    $market             = $surface->get_market_rr_bf($first_market_point);
-    %initial_rr         = %{$surface->_get_initial_rr($market)};
-    ok(looks_like_number($initial_rr{RR_25}), 'Got reasonable RR_25 for Index.');
 };
 
 subtest fetch_historical_surface_date => sub {
