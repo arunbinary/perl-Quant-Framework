@@ -157,7 +157,7 @@ sub _admissible_check {
         $date_expiry = $calendar->trades_on($date_expiry) ? $date_expiry : $calendar->trade_date_after($date_expiry);
         my $adjustment;
         if ($underlying_config->market_prefer_discrete_dividend) {
-            $adjustment = $builder->dividend_adjustments_for_period({
+            $adjustment = $builder->build_dividend->dividend_adjustments_for_period({
                 start => $now,
                 end   => $date_expiry,
             });
