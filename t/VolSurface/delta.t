@@ -74,9 +74,9 @@ subtest 'get_smile' => sub {
     my $to      = $from->plus_time_interval('1d');
 
     my $smile = $surface->get_smile($from, $to);
-    is $smile->{25}, 0.158943543966074,  'volatility for 25D';
-    is $smile->{50}, 0.0794717719830371, 'volatility for 50D';
-    is $smile->{75}, 0.238415315949111,  'volatility for 75D';
+    is $smile->{25}, 0.158943882847805,  'volatility for 25D';
+    is $smile->{50}, 0.0794719414239026, 'volatility for 50D';
+    is $smile->{75}, 0.238415824271708,  'volatility for 75D';
 
     my $later_date = $from->plus_time_interval('3d');
     my $smile3 = $surface->get_smile($from, $later_date);
@@ -399,7 +399,7 @@ subtest 'get weight' => sub {
 
     is $surface->get_weight($trading_day, $trading_day->plus_time_interval('4h')), 1 / 6, 'correct weight';
     is $surface->get_weight($trading_day, $trading_day->plus_time_interval('6h')), 1 / 4, 'correct weight';
-    is $surface->get_weight($weekend->plus_time_interval('18h'), $trading_day->plus_time_interval('6h')), (21599 / 86400 * 0.06) + (1 / 4),
+    is $surface->get_weight($weekend->plus_time_interval('18h'), $trading_day->plus_time_interval('6h')), (21600 / 86400 * 0.06) + (1 / 4),
         'correct weight for cross day';
 };
 

@@ -248,45 +248,33 @@ Get the weight between to given dates.
 sub get_weight {
     my ($self, $date1, $date2) = @_;
 
-    my @date_chunks;
-    if ($date2->days_between($date1)) {
-        my $eod = $date1->truncate_to_day->plus_time_interval('23h59m59s');
-        @date_chunks = map { $self->_break_dates($_->[0], $_->[1]) } ([$date1, $eod], [$eod->plus_time_interval('1s'), $date2]);
-    } else {
-        @date_chunks = $self->_break_dates($date1, $date2);
-    }
-
-    my $calendar     = $self->builder->build_trading_calendar;
-    my $total_weight = 0;
-    foreach my $dates (@date_chunks) {
-        for (my $i = 1; $i <= $#$dates; $i++) {
-            my $dt = $dates->[$i] - $dates->[$i - 1];
-            $total_weight += $calendar->weight_on(Date::Utility->new($dates->[$i])) * $dt / 86400;
-        }
-    }
-
-    return $total_weight;
-}
-
-sub _break_dates {
-    my ($self, $date1, $date2) = @_;
-
-    my $time_diff       = $date2->epoch - $date1->epoch;
+    my ($date1_epoch, $date2_epoch) = ($date1->epoch, $date2->epoch);
+    my $time_diff       = $date2_epoch - $date1_epoch;
     my $weight_interval = 4 * 3600;
-    my @dates           = ($date1->epoch);
 
-    if ($time_diff <= $weight_interval) {
-        push @dates, $date2->epoch;
+    my $remainder     = $date1_epoch % $weight_interval;
+    my $next_interval = $date1_epoch - $remainder + $weight_interval;
+
+    my @dates = ($date1_epoch, $next_interval);
+    if ($time_diff <= $weight_interval and $next_interval != $date2_epoch) {
+        push @dates, $date2_epoch;
     } else {
-        my $start = $date1->epoch;
-        while ($start < $date2->epoch) {
-            my $to_add = min($date2->epoch - $start, $weight_interval);
+        my $start = $next_interval;
+        while ($start < $date2_epoch) {
+            my $to_add = min($date2_epoch - $start, $weight_interval);
             $start += $to_add;
             push @dates, $start;
         }
     }
 
-    return \@dates;
+    my $calendar     = $self->builder->build_trading_calendar;
+    my $total_weight = 0;
+    for (my $i = 0; $i < $#dates; $i++) {
+        my $dt = $dates[$i + 1] - $dates[$i];
+        $total_weight += $calendar->weight_on(Date::Utility->new($dates[$i])) * $dt / 86400;
+    }
+
+    return $total_weight;
 }
 
 =head2 interpolate
