@@ -100,13 +100,13 @@ sub _check_identical_surface {
 sub _check_volatility_jump {
     my $surface = shift;
 
-    my $existing = $surface->get_existing_surface;
-    my @terms    = @{$surface->original_term_for_smile};
-    my @new_expiry = sort {$a<=>$b} keys %{$surface->variance_table};
-    my @existing_expiry = sort {$a<=>$b} keys %{$existing->variane_table};
+    my $existing        = $surface->get_existing_surface;
+    my @terms           = @{$surface->original_term_for_smile};
+    my @new_expiry      = sort { $a <=> $b } keys %{$surface->variance_table};
+    my @existing_expiry = sort { $a <=> $b } keys %{$existing->variance_table};
 
-    my @points   = @{$surface->smile_points};
-    my $type     = $surface->type;
+    my @points = @{$surface->smile_points};
+    my $type   = $surface->type;
 
     for (my $i = 1; $i < $#new_expiry; $i++) {
         for (my $j = 0; $j < $#points; $j++) {
@@ -125,7 +125,7 @@ sub _check_volatility_jump {
             my $percentage_diff = $diff / $existing_vol * 100;
             if ($diff > 0.03 and $percentage_diff > 100) {
                 die(      'Big difference found on term['
-                        . $terms[$i-1]
+                        . $terms[$i - 1]
                         . '] for point ['
                         . $sought_point
                         . '] with absolute diff ['
