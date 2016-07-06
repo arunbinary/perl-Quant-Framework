@@ -129,7 +129,8 @@ has surface => (
 sub _build_surface {
     my $self = shift;
 
-    return $self->document->{surface} // {};
+    # for backward compatibility
+    return $self->document->{surface} // $self->document->{surfaces}{'New York 10:00'} // {};
 }
 
 =head2 get_volatility
@@ -290,6 +291,43 @@ sub interpolate {
     return Math::Function::Interpolator->new(points => $args->{smile})->quadratic($args->{sought_point});
 }
 
+=head2 clone
+
+USAGE:
+
+  my $clone = $s->clone({
+    surface => $my_new_surface,
+  });
+
+Returns a new cloned instance.
+You can pass overrides to override an attribute value as it is on the original surface.
+
+=cut
+
+sub clone {
+    my ($self, $args) = @_;
+
+    my $clone_args;
+    $clone_args = dclone($args) if $args;
+
+    $clone_args->{underlying_config} = $self->underlying_config if (not exists $clone_args->{underlying_config});
+
+    if (not exists $clone_args->{surface}) {
+        my $orig_surface = dclone($self->surface);
+        my %surface_to_clone = map { $_ => $orig_surface->{$_} } @{$self->original_term_for_smile};
+        $clone_args->{surface} = \%surface_to_clone;
+    }
+
+    $clone_args->{recorded_date} = $self->recorded_date         if (not exists $clone_args->{recorded_date});
+    $clone_args->{original_term} = dclone($self->original_term) if (not exists $clone_args->{original_term});
+    $clone_args->{chronicle_reader} = $self->chronicle_reader;
+    $clone_args->{chronicle_writer} = $self->chronicle_writer;
+
+    return $self->meta->name->new($clone_args);
+}
+
+# PRIVATE #
+
 sub _convert_moneyness_to_delta {
     my ($self, $args) = @_;
 
@@ -331,81 +369,6 @@ sub _ensure_conversion_args {
     });
 
     return \%new_args;
-}
-
-sub _extrapolate_smile_down {
-    my ($self, $days) = @_;
-
-    my $first_market_point = $self->original_term_for_smile->[0];
-    return $self->surface->{$first_market_point}->{smile} if $self->_market_name eq 'indices';
-    my $market     = $self->get_market_rr_bf($first_market_point);
-    my %initial_rr = %{$self->_get_initial_rr($market)};
-
-    # we won't be using the indices case unless we revert back to delta surfaces
-    my %rr_bf = (
-        ATM   => $market->{ATM},
-        BF_25 => $market->{BF_25},
-    );
-    $rr_bf{BF_10} = $market->{BF_10} if (exists $market->{BF_10});
-
-    # Only RR is interpolated at this point.
-    # Data structure is here in case that changes, plus it's easier to understand.
-    foreach my $which (keys %initial_rr) {
-        my $interp = Math::Function::Interpolator->new(
-            points => {
-                $first_market_point => $market->{$which},
-                0                   => $initial_rr{$which},
-            });
-        $rr_bf{$which} = $interp->linear($days);
-    }
-
-    my $extrapolated_smile->{smile} = {
-        25 => $rr_bf{RR_25} / 2 + $rr_bf{BF_25} + $rr_bf{ATM},
-        50 => $rr_bf{ATM},
-        75 => $rr_bf{BF_25} - $rr_bf{RR_25} / 2 + $rr_bf{ATM},
-    };
-
-    if (exists $market->{RR_10}) {
-        $extrapolated_smile->{smile}->{10} = $rr_bf{RR_10} / 2 + $rr_bf{BF_10} + $rr_bf{ATM};
-        $extrapolated_smile->{smile}->{90} = $rr_bf{RR_10} / 2 + $rr_bf{BF_10} + $rr_bf{ATM};
-    }
-
-    return $extrapolated_smile->{smile};
-}
-
-=head2 clone
-
-USAGE:
-
-  my $clone = $s->clone({
-    surface => $my_new_surface,
-  });
-
-Returns a new cloned instance.
-You can pass overrides to override an attribute value as it is on the original surface.
-
-=cut
-
-sub clone {
-    my ($self, $args) = @_;
-
-    my $clone_args;
-    $clone_args = dclone($args) if $args;
-
-    $clone_args->{underlying_config} = $self->underlying_config if (not exists $clone_args->{underlying_config});
-
-    if (not exists $clone_args->{surface}) {
-        my $orig_surface = dclone($self->surface);
-        my %surface_to_clone = map { $_ => $orig_surface->{$_} } @{$self->original_term_for_smile};
-        $clone_args->{surface} = \%surface_to_clone;
-    }
-
-    $clone_args->{recorded_date} = $self->recorded_date         if (not exists $clone_args->{recorded_date});
-    $clone_args->{original_term} = dclone($self->original_term) if (not exists $clone_args->{original_term});
-    $clone_args->{chronicle_reader} = $self->chronicle_reader;
-    $clone_args->{chronicle_writer} = $self->chronicle_writer;
-
-    return $self->meta->name->new($clone_args);
 }
 
 no Moose;
