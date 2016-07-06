@@ -102,26 +102,30 @@ sub _check_volatility_jump {
 
     my $existing = $surface->get_existing_surface;
     my @terms    = @{$surface->original_term_for_smile};
+    my @new_expiry = sort {$a<=>$b} keys %{$surface->variance_table};
+    my @existing_expiry = sort {$a<=>$b} keys %{$existing->variane_table};
+
     my @points   = @{$surface->smile_points};
     my $type     = $surface->type;
 
-    for (my $i = 0; $i < $#terms; $i++) {
-        my $days = $terms[$i];
+    for (my $i = 1; $i < $#new_expiry; $i++) {
         for (my $j = 0; $j < $#points; $j++) {
             my $sought_point = $points[$j];
             my $new_vol      = $surface->get_volatility({
                 $type => $sought_point,
-                days  => $days,
+                from  => $surface->recorded_date,
+                to    => Date::Utility->new($new_expiry[$i]),
             });
             my $existing_vol = $existing->get_volatility({
                 $type => $sought_point,
-                days  => $days,
+                from  => $existing->recorded_date,
+                to    => Date::Utility->new($existing_expiry[$i]),
             });
             my $diff            = abs($new_vol - $existing_vol);
             my $percentage_diff = $diff / $existing_vol * 100;
             if ($diff > 0.03 and $percentage_diff > 100) {
                 die(      'Big difference found on term['
-                        . $days
+                        . $terms[$i-1]
                         . '] for point ['
                         . $sought_point
                         . '] with absolute diff ['
