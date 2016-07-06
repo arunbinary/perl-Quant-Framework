@@ -129,7 +129,7 @@ has surface => (
 sub _build_surface {
     my $self = shift;
 
-    return $self->document->{surfaces}{'New York 10:00'} // {};
+    return $self->document->{surface} // {};
 }
 
 =head2 get_volatility
