@@ -36,6 +36,72 @@ sub _document_content {
     return \%structure;
 }
 
+=head2 effective_date
+
+Effective date for the volatility surface.
+For moneyness where there's no concept of rollover, the effective_date is the recorded date.
+
+=cut
+
+has effective_date => (
+    is         => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_effective_date {
+    my $self = shift;
+    return $self->recorded_date;
+}
+
+=head2 surface
+
+Volatility surface in a hash reference.
+
+=cut
+
+has surface => (
+    is         => 'ro',
+    isa        => 'HashRef',
+    lazy_build => 1,
+);
+
+sub _build_surface {
+    my $self = shift;
+
+    my $date = $self->for_date // Date::Utility->new;
+
+    return $self->document->{surface} // $self->document->{surfaces}{$self->calendar->standard_closing_on($date)->time_hhmm} // {};
+}
+
+has variance_table => (
+    is         => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_variance_table {
+    my $self = shift;
+
+    my $raw_surface    = $self->surface;
+    my $effective_date = $self->effective_date;
+    my $close          = $self->calendar->standard_closing_on($effective_date);
+
+    die 'Attempt to update volatility surface for ' . $self->symbol . ' when the exchange is closed' unless $close;
+
+    # keys are tenor in epoch, values are associated variances.
+    my %table = (
+        $self->recorded_date->epoch => {map { $_ => 0 } @{$self->moneynesses}},
+    );
+    foreach my $tenor (@{$self->original_term_for_smile}) {
+        my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $close->seconds_after_midnight . 's')->epoch;
+        foreach my $moneyness (@{$self->moneynesses}) {
+            my $volatility = $raw_surface->{$tenor}{smile}{$moneyness};
+            $table{$epoch}{$moneyness} = $volatility**2 * $tenor if $volatility;
+        }
+    }
+
+    return \%table;
+}
+
 =head2 type
 
 Return the surface type
@@ -130,7 +196,7 @@ sub get_volatility {
         die("Must pass exactly one of [delta, moneyness, strike] to get_volatility.");
     }
 
-    $args->{days} = $self->underlying_config->default_volatility_duration // $self->_convert_expiry_to_day($args);
+    $args->{days} = $self->underlying_config->default_volatility_duration // (($args->{to}->epoch - $args->{from}->epoch) / 86400);
 
     my $vol;
     if ($args->{delta}) {

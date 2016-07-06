@@ -149,10 +149,15 @@ sub _admissible_check {
     my $surface_type      = $surface->type;
     my $S                 = ($surface_type eq 'delta') ? $underlying_config->spot : $surface->spot_reference;
     my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
+    my @expiries          = sort { $a <=> $b } keys %{$surface->variance_table};
+    my @tenors            = @{$surface->original_term_for_smile};
     my $now               = Date::Utility->new;
 
     my $utils = Quant::Framework::VolSurface::Utils->new;
-    foreach my $day (@{$surface->_days_with_smiles}) {
+    for (my $i = 1; $i <= $#expiries; $i++) {
+        my $day    = $tenors[$i - 1];
+        my $expiry = Date::Utility->new($expiries[$i]);
+
         my $date_expiry = Date::Utility->new(time + $day * 86400);
         $date_expiry = $calendar->trades_on($date_expiry) ? $date_expiry : $calendar->trade_date_after($date_expiry);
         my $adjustment;
@@ -265,21 +270,25 @@ sub _admissible_check {
             $barrier = $vol_level / 100 * $S;
             my $h = (2.0 / 100) * $S;
 
+            my %vol_period = (
+                from => $surface->recorded_date,
+                to   => $expiry,
+            );
             $vol = $surface->get_volatility({
                 moneyness => ($vol_level - 2),
-                days      => $day
+                %vol_period,
             });
             my $bet_minus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier - $h, $t, $r, $r - $q, $vol);
 
             $vol = $surface->get_volatility({
                 moneyness => ($vol_level),
-                days      => $day
+                %vol_period,
             });
             my $bet = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
 
             $vol = $surface->get_volatility({
                 moneyness => ($vol_level + 2),
-                days      => $day
+                %vol_period,
             });
             my $bet_plus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier + $h, $t, $r, $r - $q, $vol);
 
@@ -337,7 +346,6 @@ sub _check_structure {
 
     foreach my $day (@days) {
         if ($day !~ /^\d+$/) {
-            $DB::single = 1;
             die("Invalid day[$day] in volsurface for underlying[$system_symbol]. Not a positive integer.");
         } elsif ($day > $max_term) {
             die("Day[$day] in volsurface for underlying[$system_symbol] greater than allowed.");

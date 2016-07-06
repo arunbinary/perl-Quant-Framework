@@ -640,9 +640,9 @@ sub _sample_surface {
     Quant::Framework::Utils::Test::create_doc(
         'volsurface_delta',
         {
-            symbol               => 'frxEURUSD',
-            underlying_config    => $u_c,
-            surface              => \%surface_data,
+            symbol            => 'frxEURUSD',
+            underlying_config => $u_c,
+            surface           => \%surface_data,
             %$args,
             recorded_date    => Date::Utility->new,
             chronicle_reader => $chronicle_r,

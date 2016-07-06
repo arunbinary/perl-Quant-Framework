@@ -104,15 +104,36 @@ sub _build_variance_table {
             75 => 0,
             90 => 0,
         });
-    foreach my $tenor (sort { $a <=> $b } keys %$raw_surface) {
+    foreach my $tenor (@{$self->original_term_for_smile}) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
         foreach my $delta (@{$self->deltas}) {
             my $volatility = $raw_surface->{$tenor}{smile}{$delta};
-            $table{$epoch}{$delta} = $volatility**2 * $tenor;
+            $table{$epoch}{$delta} = $volatility**2 * $tenor if $volatility;
         }
     }
 
     return \%table;
+}
+
+=head2 effective_date
+
+Surfaces roll over at 5pm NY time, so the vols of any surfaces recorded after 5pm NY but
+before GMT midnight are effectively for the next GMT day. This attribute holds this
+effective date.
+
+=cut
+
+has effective_date => (
+    is         => 'ro',
+    isa        => 'Date::Utility',
+    init_arg   => undef,
+    lazy_build => 1,
+);
+
+sub _build_effective_date {
+    my $self = shift;
+
+    return $self->_vol_utils->effective_date_for($self->recorded_date);
 }
 
 =head2 surface

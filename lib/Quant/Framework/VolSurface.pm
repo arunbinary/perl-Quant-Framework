@@ -156,25 +156,6 @@ has type => (
     default  => undef,
 );
 
-=head2 surface
-
-Stores the represented surface as a data structure (read-only).
-
-Term structures of CALL delta or moneyness to annualized volatilities.
-
-=cut
-
-has surface => (
-    is         => 'ro',
-    isa        => 'HashRef',
-    lazy_build => 1,
-);
-
-sub _build_surface {
-    my $self = shift;
-    return $self->document->{surface};
-}
-
 =head2 default_vol_spread
 
 This will return default volatility spread (difference between ask and bid for atm volatility).
@@ -383,27 +364,6 @@ sub _build_original_term_for_spread {
     my @sorted = sort { $a <=> $b } @spread_terms;
 
     return \@sorted;
-}
-
-=head2 effective_date
-
-Surfaces roll over at 5pm NY time, so the vols of any surfaces recorded after 5pm NY but
-before GMT midnight are effectively for the next GMT day. This attribute holds this
-effective date.
-
-=cut
-
-has effective_date => (
-    is         => 'ro',
-    isa        => 'Date::Utility',
-    init_arg   => undef,
-    lazy_build => 1,
-);
-
-sub _build_effective_date {
-    my $self = shift;
-
-    return $self->_vol_utils->effective_date_for($self->recorded_date);
 }
 
 # PRIVATE ATTRIBUTES:
