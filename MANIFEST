@@ -61,7 +61,6 @@ t/tentative_events.t
 t/VolSurface/delta.t
 t/VolSurface/Delta/BloombergSurfaces.pm
 t/VolSurface/Delta/ClarkSurfaces.pm
-t/VolSurface/Delta/interpolation.t
 t/VolSurface/Delta/interpolation/EURUSD_20120113024000.csv
 t/VolSurface/Delta/interpolation/EURUSD_20120117231500.csv
 t/VolSurface/Delta/interpolation/FTSE_20120113025829.csv
