@@ -156,21 +156,6 @@ has type => (
     default  => undef,
 );
 
-=head2 default_vol_spread
-
-This will return default volatility spread (difference between ask and bid for atm volatility).
-
-=cut
-
-has default_vol_spread => (
-    is         => 'ro',
-    lazy_build => 1,
-);
-
-sub _build_default_vol_spread {
-    return {shift->atm_spread_point => 0.1};
-}
-
 =head2 smile_points
 
 The points across a smile.
@@ -223,21 +208,10 @@ sub _build_spread_points {
     # has the same points, this works. If each smile has different
     # points, the Validator is going to give you trouble!
     my $surface = $self->surface;
-
     my $suitable_day = first { exists $surface->{$_}->{vol_spread} } keys %{$surface};
 
-    my @spread_points = ();
-    if ($suitable_day) {
-
-        @spread_points =
-            sort { $a <=> $b } keys %{$surface->{$suitable_day}->{vol_spread}};
-    } else {
-
-        $suitable_day = first { exists $surface->{$_}->{atm_spread} } keys %{$surface};
-        push @spread_points, 'atm_spread';
-    }
-
-    return \@spread_points;
+    return [sort { $a <=> $b } keys %{$surface->{$suitable_day}{vol_spread}}] if $suitable_day;
+    return [];
 }
 
 =head2 term_by_day
@@ -276,48 +250,25 @@ has original_term => (
 sub _build_original_term {
     my $self = shift;
 
-    my $surface = $self->surface;
-
-    my $atm_spread_point = $self->atm_spread_point;
-    my $spread_type;
-    my @vol_spreads;
-    my @days = @{$self->term_by_day};
-
-    my @smiles = grep { exists $surface->{$_}->{smile} } @days;
-
-    foreach (@days) {
-
-        if (exists $surface->{$_}->{vol_spread}) {
-            $spread_type = 'vol_spread';
-            push @vol_spreads, $_;
-
-        } elsif (exists $surface->{$_}->{atm_spread}) {
-
-            $spread_type = 'atm_spread';
-            push @vol_spreads, $_;
-        }
-
-    }
+    my $surface     = $self->surface;
+    my @days        = @{$self->term_by_day};
+    my @vol_spreads = grep { exists $surface->{$_}{vol_spread} } @days;
+    my @smiles      = grep { exists $surface->{$_}{smile} } @days;
 
 # We must have at least 2 atm_spreads if this is a valid surface with multiple smiles.
 # Set the end points to the default if they are unset to make up any difference.
     if (scalar @vol_spreads < min(2, scalar @smiles)) {
         foreach my $end_index (0, -1) {
-            if (    exists $surface->{$days[$end_index]}
-                and not defined $surface->{$days[$end_index]}->{vol_spread}
-                and not defined $surface->{$days[$end_index]}->{atm_spread})
-            {
-                $spread_type = 'vol_spread';
-                $surface->{$days[$end_index]}->{vol_spread} = $self->default_vol_spread;
-                push @vol_spreads, $days[$end_index];
-
-            }
+            my $day = $days[$end_index];
+            next if exists $surface->{$day}{vol_spread};
+            $surface->{$day}{vol_spread} = {$self->atm_spread_point => 0.1};
+            push @vol_spreads, $day;
         }
     }
 
     return +{
-        $spread_type => \@vol_spreads,
-        smile        => \@smiles,
+        vol_spread => \@vol_spreads,
+        smile      => \@smiles,
     };
 
 }
@@ -337,9 +288,7 @@ has original_term_for_smile => (
 sub _build_original_term_for_smile {
     my $self = shift;
 
-    my @smile_terms = @{$self->original_term->{smile}};
-    my @sorted = sort { $a <=> $b } @smile_terms;
-    return \@sorted;
+    return [sort { $a <=> $b } @{$self->original_term->{smile}}];
 }
 
 =head2 original_term_for_spread
@@ -356,14 +305,8 @@ has original_term_for_spread => (
 
 sub _build_original_term_for_spread {
     my $self = shift;
-    my @spread_terms =
-        defined $self->original_term->{vol_spread}
-        ? @{$self->original_term->{vol_spread}}
-        : @{$self->original_term->{atm_spread}};
 
-    my @sorted = sort { $a <=> $b } @spread_terms;
-
-    return \@sorted;
+    return [sort { $a <=> $b } @{$self->original_term->{vol_spread}}];
 }
 
 # PRIVATE ATTRIBUTES:
@@ -504,7 +447,6 @@ USAGE:
    my $spread = $volsurface->get_spread({sought_point=> 'max', day=> 7});
     will return the max spread for the day.
 
-
 =cut
 
 sub get_spread {
@@ -512,51 +454,38 @@ sub get_spread {
 
     my $sought_point = $args->{sought_point};
     my $day          = $args->{day};
-    my $spread;
     $day = $self->get_day_for_tenor($day)
         if ($day =~ /^(?:ON|\d[WMY])$/);    # if day looks like tenor
 
-    if ($sought_point eq 'atm') {
+    return $self->_get_atm_spread($day)              if $sought_point eq 'atm';
+    return $self->_get_max_spread_from_surface($day) if $sought_point eq 'max';
+    die 'Unrecognized spread type ' . $sought_point;
+}
 
-        $spread = $self->_get_atm_spread($day);
-    } elsif ($sought_point eq 'max') {
+sub _get_atm_spread {
+    my ($self, $day) = @_;
 
-        $spread = $self->_get_max_spread_from_surface({
-            day => $day,
-        });
+    my $surface          = $self->surface;
+    my $atm_spread_point = $self->atm_spread_point;
 
+    if (exists $surface->{$day}) {
+        return $surface->{$day}{vol_spread}{$atm_spread_point};
     }
 
-    return $spread;
-
+    my $smile_spread = $self->get_smile_spread($day);
+    return $smile_spread->{$atm_spread_point};
 }
 
 sub _get_max_spread_from_surface {
-    my ($self, $args) = @_;
+    my ($self, $day) = @_;
 
-    my $day              = $args->{day};
-    my $atm_spread_point = $self->atm_spread_point;
-    my $spread;
     my $surface = $self->surface;
-    if (exists $surface->{$day} and exists $surface->{$day}->{atm_spread}) {
-        $spread = $surface->{$day}->{atm_spread};
-    } else {
-
-        my $smile = $self->get_smile_spread($day);
-        my @spread;
-        if ($atm_spread_point eq 'atm_spread') {
-            @spread = values %{$smile->{atm_spread}};
-        } else {
-            foreach my $point (keys %{$smile->{vol_spread}}) {
-                push @spread, $smile->{vol_spread}->{$point};
-            }
-        }
-
-        $spread = max(@spread);
-
+    if (exists $surface->{$day}) {
+        return max(values %{$surface->{$day}{vol_spread}});
     }
 
-    return $spread;
+    my $smile_spread = $self->get_smile_spread($day);
+    return max(values %$smile_spread);
 }
 
 =head2 get_smile_spread
@@ -566,349 +495,50 @@ Returns the ask/bid spread for smile of this volatility surface
 =cut
 
 sub get_smile_spread {
-
     my ($self, $day) = @_;
 
-    my $surface       = $self->surface;
-    my @market_points = @{$self->original_term_for_spread};
-
-    my $smile_spread;
-
-    if ($self->_market_name eq 'indices' and $self->type eq 'moneyness') {
-
+    my $surface = $self->surface;
+    # if a surface has a minimum volatility spread that needs to be applied,
+    # we will do the check.
+    if ($self->can('min_vol_spread')) {
+        my %market_points = map { $_ => 1 } @{$self->original_term_for_spread};
         foreach my $day (keys %{$surface}) {
-
             #check and add min_vol_spread for shorter term vol_spreads
-            if ($day < 30 and grep { $_ == $day } @market_points) {
-
-                if (exists $surface->{$day}->{atm_spread}
-                    and $surface->{$day}->{atm_spread} < $self->min_vol_spread)
-                {
-
-                    $surface->{$day}->{atm_spread} += $self->min_vol_spread;
-
-                } elsif (exists $surface->{$day}->{vol_spread}) {
-                    my $vol_spread = $surface->{$day}->{vol_spread};
-
-                    foreach my $point (keys %{$vol_spread}) {
-                        if ($vol_spread->{$point} < $self->min_vol_spread) {
-                            $vol_spread->{$point} += $self->min_vol_spread;
-                        }
-                    }
-
-                    $surface->{$day}->{vol_spread} = $vol_spread;
-
-                }
-
+            next if (not $market_points{$day} or $day >= 30);
+            foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
+                $surface->{$day}{vol_spread}{$point} = max($surface->{$day}{vol_spread}{$point}, $self->min_vol_spread);
             }
-
         }
-
     }
 
-    if (exists $surface->{$day}) {
-
-        if (exists $surface->{$day}->{atm_spread}) {
-            $smile_spread->{'atm_spread'} = $surface->{$day}->{atm_spread};
-
-        } elsif (exists $surface->{$day}->{vol_spread}) {
-
-            $smile_spread->{'vol_spread'} = $surface->{$day}->{vol_spread};
-        }
-
-    } else {
-
-        $smile_spread = $self->_compute_and_set_smile_spread($day);
-    }
-
-    return $smile_spread;
-
+    return $surface->{$day}{vol_spread} if (exists $surface->{$day});
+    return $self->_compute_and_set_smile_spread($day);
 }
 
 sub _compute_and_set_smile_spread {
     my ($self, $day) = @_;
 
-    my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_spread);
-    my $method =
-        ($self->_is_between($day, \@points))
-        ? '_interpolate_smile_spread'
-        : '_extrapolate_smile_spread';
-    my $smile_spread = $self->$method($day, \@points);
-
-    $self->set_smile_spread({
-        days         => $day,
-        smile_spread => $smile_spread
-    });
-
-    return $smile_spread;
-}
-
-=head2 set_smile_spread
-
-sets smile spread for the given tenor. Input should be a hash-ref with below items:
-- days: Tenor for which smile_spread needs to be set.
-- smile_spread
-
-=cut
-
-sub set_smile_spread {
-    my ($self, $args) = @_;
-
-    my $day              = $args->{days};
-    my $smile_spread     = $args->{smile_spread};
-    my $atm_spread_point = $self->atm_spread_point;
-    die("day[$day] must be a number.") unless $day > 0;
-
-    my $surface = $self->surface;
-
-    $surface->{$day} = $smile_spread;
-
-    return;
-}
-
-sub _interpolate_smile_spread {
-    my ($self, $seek, $points) = @_;
-
     my $surface      = $self->surface;
-    my $first_point  = $points->[0];
-    my $second_point = $points->[1];
-    my $interpolation_first_point;
-    my $interpolation_second_point;
-    my $interpolated_smile;
+    my $spread_terms = $self->original_term_for_spread;
+    my @points       = $self->_get_points_to_interpolate($day, $spread_terms);
 
-    foreach my $spread_point (@{$self->spread_points}) {
+    if (not $self->_is_between($day, \@points)) {
+        my $index = $day > $spread_terms->[-1] ? $spread_terms->[-1] : $spread_terms->[0];
+        return $surface->{$index}{vol_spread};
+    }
 
-        if (exists $surface->{$first_point}->{atm_spread}) {
-            $interpolation_first_point  = $surface->{$first_point}->{atm_spread};
-            $interpolation_second_point = $surface->{$second_point}->{atm_spread};
-        } else {
-            $interpolation_first_point  = $surface->{$first_point}->{vol_spread}->{$spread_point};
-            $interpolation_second_point = $surface->{$second_point}->{vol_spread}->{$spread_point};
-        }
-
-        my $interp = Math::Function::Interpolator->new(
+    my %smile_spread = map {
+        $_ => Math::Function::Interpolator->new(
             points => {
-                $first_point  => $interpolation_first_point,
-                $second_point => $interpolation_second_point,
-            });
-
-        if ($spread_point eq 'atm_spread') {
-
-            $interpolated_smile->{atm_spread} = $interp->linear($seek);
-        } else {
-            $interpolated_smile->{vol_spread}->{$spread_point} = $interp->linear($seek);
-        }
-
-    }
-
-    return $interpolated_smile;
-
-}
-
-sub _extrapolate_smile_spread {
-    my ($self, $seek, $points) = @_;
-
-    my $extrapolation_direction = $self->_get_extrapolate_direction($seek, $points);
-    my $extrapolation_method = '_extrapolate_smile_spread_' . $extrapolation_direction;
-
-    return $self->$extrapolation_method($seek, $points);
-}
-
-sub _extrapolate_smile_spread_up {
-    my ($self, $seek, $points) = @_;
-
-    my @amp              = @{$self->original_term_for_smile};
-    my $atm_spread_point = $self->atm_spread_point;
-    my $day              = $amp[-1];
-    my $extrapolation;
-
-    if ($atm_spread_point eq 'atm_spread') {
-        $extrapolation->{'atm_spread'} = $self->surface->{$day}->{'atm_spread'};
-    } else {
-        $extrapolation->{'vol_spread'} = $self->surface->{$day}->{'vol_spread'};
-    }
-
-    return $extrapolation;
-
-}
-
-sub _extrapolate_smile_spread_down {
-    my ($self, $seek, $points) = @_;
-
-    my $surface      = $self->surface;
-    my $first_point  = $points->[0];
-    my $second_point = $points->[1];
-    my $extrapolation_first_point;
-    my $extrapolation_second_point;
-    my $extrapolated_smile;
-
-    foreach my $spread_point (@{$self->spread_points}) {
-
-        if (exists $surface->{$first_point}->{atm_spread}) {
-            $extrapolation_first_point  = $surface->{$first_point}->{atm_spread};
-            $extrapolation_second_point = $surface->{$second_point}->{atm_spread};
-        } else {
-            $extrapolation_first_point  = $surface->{$first_point}->{vol_spread}->{$spread_point};
-            $extrapolation_second_point = $surface->{$second_point}->{vol_spread}->{$spread_point};
-        }
-
-        my $interp = Math::Function::Interpolator->new(
-
-            points => {
-                $first_point  => $extrapolation_first_point,
-                $second_point => $extrapolation_second_point,
-            });
-
-        if ($spread_point eq 'atm_spread') {
-
-            $extrapolated_smile->{atm_spread} = $interp->linear($seek);
-        } else {
-            $extrapolated_smile->{vol_spread}->{$spread_point} = $interp->linear($seek);
-        }
-
-    }
-
-    return $extrapolated_smile;
-
-}
-
-sub _get_atm_spread {
-    my ($self, $day) = @_;
-
-    my $atm_spread;
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-
-    if (exists $surface->{$day} and exists $surface->{$day}->{atm_spread}) {
-        $atm_spread = $surface->{$day}->{atm_spread};
-    } else {
-
-        my $smile_spread = $self->get_smile_spread($day);
-
-        if (
-            grep { $atm_spread_point eq $_ }
-            keys %{$smile_spread->{'vol_spread'}})
-        {
-            $atm_spread = $smile_spread->{'vol_spread'}->{$atm_spread_point};
-        } else {
-
-            my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_spread);
-
-            my $method =
-                ($self->_is_between($day, \@points))
-                ? '_interpolate_atm_spread'
-                : '_extrapolate_atm_spread';
-
-            $smile_spread = $self->$method($day, \@points);
-
-            if ($atm_spread_point eq 'atm_spread') {
-                $atm_spread = $smile_spread->{$atm_spread_point};
-            } else {
-                $atm_spread = $smile_spread->{'vol_spread'}->{$atm_spread_point};
+                $points[0] => $surface->{$points[0]}->{vol_spread}->{$_},
+                $points[1] => $surface->{$points[1]}->{vol_spread}->{$_},
             }
+            )->linear($day)
+    } @{$self->spread_points};
 
-        }
+    $self->surface->{$day} = \%smile_spread;
 
-    }
-
-    return $atm_spread;
-}
-
-sub _interpolate_atm_spread {
-    my ($self, $seek, $points) = @_;
-
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-    my $first            = $points->[0];
-    my $second           = $points->[1];
-    my $interpolation_first_point;
-    my $interpolation_second_point;
-
-    if (exists $surface->{$first}->{atm_spread}) {
-        $interpolation_first_point  = $surface->{$first}->{atm_spread};
-        $interpolation_second_point = $surface->{$second}->{atm_spread};
-    } else {
-        $interpolation_first_point  = $surface->{$first}->{vol_spread}->{$atm_spread_point};
-        $interpolation_second_point = $surface->{$second}->{vol_spread}->{$atm_spread_point};
-    }
-
-    my $interp = Math::Function::Interpolator->new(
-
-        points => {
-            $first  => $interpolation_first_point,
-            $second => $interpolation_second_point,
-        });
-
-    my $interpolated_spread;
-
-    if ($atm_spread_point eq 'atm_spread') {
-        $interpolated_spread->{$atm_spread_point} = $interp->linear($seek);
-    } else {
-        $interpolated_spread->{'vol_spread'}->{$atm_spread_point} = $interp->linear($seek);
-    }
-
-    return $interpolated_spread;
-}
-
-sub _extrapolate_atm_spread {
-    my ($self, $seek, $points) = @_;
-
-    my $extrapolation_direction = $self->_get_extrapolate_direction($seek, $points);
-    my $extrapolation_method = '_extrapolate_atm_spread_' . $extrapolation_direction;
-
-    return $self->$extrapolation_method($seek, $points);
-}
-
-sub _extrapolate_atm_spread_up {
-    my ($self, $seek, $points) = @_;
-
-    my @amp              = @{$self->original_term_for_smile};
-    my $atm_spread_point = $self->atm_spread_point;
-    my $day              = $amp[-1];
-    my $extrapolation;
-    if ($atm_spread_point eq 'atm_spread') {
-        $extrapolation->{'atm_spread'} = $self->surface->{$day}->{atm_spread};
-    } else {
-        $extrapolation->{vol_spread}->{$atm_spread_point} = $self->surface->{$day}->{vol_spread}->{$atm_spread_point};
-    }
-
-    return $extrapolation;
-}
-
-sub _extrapolate_atm_spread_down {
-    my ($self, $seek, $points) = @_;
-
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-    my $first_point      = $points->[0];
-    my $second_point     = $points->[1];
-    my $extrapolation_first_point;
-    my $extrapolation_second_point;
-    my $extrapolated_smile;
-
-    if (exists $surface->{$first_point}->{atm_spread}) {
-        $extrapolation_first_point  = $surface->{$first_point}->{atm_spread};
-        $extrapolation_second_point = $surface->{$second_point}->{atm_spread};
-    } else {
-        $extrapolation_first_point  = $surface->{$first_point}->{vol_spread}->{$atm_spread_point};
-        $extrapolation_second_point = $surface->{$second_point}->{vol_spread}->{$atm_spread_point};
-    }
-
-    my $interp = Math::Function::Interpolator->new(
-        points => {
-            $first_point  => $extrapolation_first_point,
-            $second_point => $extrapolation_second_point,
-        });
-
-    if ($atm_spread_point eq 'atm_spread') {
-
-        $extrapolated_smile->{atm_spread} = $interp->linear($seek);
-    } else {
-        $extrapolated_smile->{vol_spread}->{$atm_spread_point} = $interp->linear($seek);
-    }
-
-    return $extrapolated_smile;
-
+    return \%smile_spread;
 }
 
 =head2 get_day_for_tenor
@@ -1230,24 +860,16 @@ sub set_smile {
     my ($self, $args) = @_;
 
     my $day = $args->{days};
-    die("day[$day] must be a number.")
-        unless looks_like_number($day);
+    die("day[$day] must be a number.") if $day <= 0;
 
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-    my $smile            = $args->{smile};
-    my $vol_spread       = $self->get_smile_spread($day);
+    my $surface = $self->surface;
+    my $smile   = $args->{smile};
 
     # throws exception on error.
     $self->_vol_surface_validator->check_smile($day, $smile, $self->symbol);
 
-    $surface->{$day}->{smile} = $smile;
-
-    if ($atm_spread_point eq 'atm_spread') {
-        $surface->{$day}->{atm_spread} = $vol_spread->{'atm_spread'};
-    } else {
-        $surface->{$day}->{vol_spread} = $vol_spread->{'vol_spread'};
-    }
+    $surface->{$day}->{smile}      = $smile;
+    $surface->{$day}->{vol_spread} = $self->get_smile_spread($day);
 
     # We just changed the surface, so clear the caches.
     $self->clear_term_by_day;

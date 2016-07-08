@@ -131,8 +131,19 @@ has surface => (
 sub _build_surface {
     my $self = shift;
 
-    # for backward compatibility
-    return $self->document->{surface} // $self->document->{surfaces}{'New York 10:00'} // {};
+    # For backward compatibility
+    my $surface = $self->document->{surface} // $self->document->{surfaces}{'New York 10:00'} // {};
+
+    # For backward compatibility in volatility spread,
+    # we will convert the legacy structure to the new structure here.
+    foreach my $tenor (keys %$surface) {
+        if (exists $surface->{$tenor}{atm_spread}) {
+            my $spread = delete $surface->{$tenor}{atm_spread};
+            $surface->{$tenor}{vol_spread} = {$self->atm_spread_point => $spread};
+        }
+    }
+
+    return $surface;
 }
 
 =head2 get_volatility

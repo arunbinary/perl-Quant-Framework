@@ -69,8 +69,18 @@ sub _build_surface {
     my $self = shift;
 
     my $date = $self->for_date // Date::Utility->new;
+    my $surface = $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm} // {};
 
-    return $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm} // {};
+    # For backward compatibility in volatility spread,
+    # we will convert the legacy structure to the new structure here.
+    foreach my $tenor (keys %$surface) {
+        if (exists $surface->{$tenor}{atm_spread}) {
+            my $spread = delete $surface->{$tenor}{atm_spread};
+            $surface->{$tenor}{vol_spread} = {$self->atm_spread_point => $spread};
+        }
+    }
+
+    return $surface;
 }
 
 has variance_table => (
