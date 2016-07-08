@@ -4,6 +4,7 @@ use warnings;
 use 5.010;
 use Test::Most;
 
+use Test::FailWarnings;
 use List::Util qw( max );
 use Test::MockObject::Extends;
 use Test::Warn;
@@ -538,17 +539,6 @@ subtest _is_tenor => sub {
     lives_ok { Quant::Framework::VolSurface::_is_tenor('1W') } 'can call _is_tenor';
     ok(!Quant::Framework::VolSurface::_is_tenor(3),   'returns false if not tenor');
     ok(Quant::Framework::VolSurface::_is_tenor('2M'), 'returns true if tenor');
-};
-
-subtest 'Private method _get_initial_rr' => sub {
-    my $ul                 = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
-    my $surface            = _get_surface({underlying_config => $ul});
-    my $from               = $surface->recorded_date;
-    my $first_market_point = $surface->original_term_for_smile->[0];
-    my $to                 = $from->plus_time_interval($first_market_point . 'd');
-    my $market             = $surface->get_market_rr_bf($from, $to);
-    my %initial_rr         = %{$surface->_get_initial_rr($market)};
-    is($initial_rr{RR_25}, 0.1 * $market->{RR_25}, 'correct interpolated RR');
 };
 
 subtest fetch_historical_surface_date => sub {
