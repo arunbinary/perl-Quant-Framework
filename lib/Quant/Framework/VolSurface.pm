@@ -511,7 +511,7 @@ sub get_smile_spread {
         }
     }
 
-    return $surface->{$day}{vol_spread} if (exists $surface->{$day});
+    return $surface->{$day}{vol_spread} if (exists $surface->{$day} and exists $surface->{$day}{vol_spread});
     return $self->_compute_and_set_smile_spread($day);
 }
 
@@ -864,12 +864,12 @@ sub set_smile {
 
     my $surface = $self->surface;
     my $smile   = $args->{smile};
+    $surface->{$day}->{vol_spread} = $self->get_smile_spread($day);
 
     # throws exception on error.
     $self->_vol_surface_validator->check_smile($day, $smile, $self->symbol);
 
     $surface->{$day}->{smile}      = $smile;
-    $surface->{$day}->{vol_spread} = $self->get_smile_spread($day);
 
     # We just changed the surface, so clear the caches.
     $self->clear_term_by_day;
