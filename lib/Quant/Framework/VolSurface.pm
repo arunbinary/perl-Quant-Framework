@@ -834,14 +834,17 @@ sub set_smile {
     my $day = $args->{days};
     die("day[$day] must be a number.") if not looks_like_number($day) or $day <= 0;
 
-    my $surface = $self->surface;
-    my $smile   = $args->{smile};
-    $surface->{$day}->{vol_spread} = $self->get_smile_spread($day);
+    my $surface    = $self->surface;
+    my $smile      = $args->{smile};
+    my $vol_spread = $self->get_smile_spread($day);
 
     # throws exception on error.
     $self->_vol_surface_validator->check_smile($day, $smile, $self->symbol);
 
-    $surface->{$day}->{smile} = $smile;
+    $surface->{$day} = {
+        smile      => $smile,
+        vol_spread => $vol_spread,
+    };
 
     # We just changed the surface, so clear the caches.
     $self->clear_term_by_day;
