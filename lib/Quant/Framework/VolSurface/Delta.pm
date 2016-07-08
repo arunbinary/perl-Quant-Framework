@@ -50,25 +50,6 @@ has '+type' => (
     default => 'delta',
 );
 
-=head2 deltas
-
-Get the available deltas for which we have vols.
-
-Returns an ArrayRef, is required and read-only.
-
-=cut
-
-has deltas => (
-    is         => 'ro',
-    isa        => 'ArrayRef',
-    lazy_build => 1,
-);
-
-sub _build_deltas {
-    my $self = shift;
-    return $self->smile_points;
-}
-
 has atm_spread_point => (
     is      => 'ro',
     isa     => 'Num',

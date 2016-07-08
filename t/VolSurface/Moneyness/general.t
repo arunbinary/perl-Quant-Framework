@@ -85,7 +85,7 @@ subtest 'get available strikes on surface' => sub {
         chronicle_writer  => $chronicle_w,
     );
     my $moneyness_points;
-    lives_ok { $moneyness_points = $volsurface->moneynesses } 'can call moneynesses';
+    lives_ok { $moneyness_points = $volsurface->smile_points } 'can call smile_points';
     is_deeply($moneyness_points, [100], 'get correct value for moneyness points');
 };
 

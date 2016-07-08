@@ -130,23 +130,6 @@ has atm_spread_point => (
     default => 100,
 );
 
-=head2 moneynesses
-
-Returns the moneyness points on the surface
-
-=cut
-
-has moneynesses => (
-    is         => 'ro',
-    isa        => 'ArrayRef',
-    lazy_build => 1,
-);
-
-sub _build_moneynesses {
-    my $self = shift;
-    return $self->smile_points;
-}
-
 =head2 corresponding_deltas
 
 Stores the corresponding moneyness smile in terms on delta.
