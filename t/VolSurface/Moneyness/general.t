@@ -48,7 +48,6 @@ subtest clone => sub {
     my $surface = {
         'ON' => {smile => {100 => 0.1}},
         '1W' => {smile => {100 => 0.2}}};
-    $DB::single = 1;
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
         spot_reference    => $underlying_config->spot,

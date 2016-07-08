@@ -113,15 +113,18 @@ subtest "convert moneyness to delta" => sub {
 
     my $BOM_25 = $v->get_volatility({
         delta => 25,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     my $BOM_50 = $v->get_volatility({
         delta => 50,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     my $BOM_75 = $v->get_volatility({
         delta => 75,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     cmp_ok(abs($BOM_25 - $calculated_delta_from_csv->{25}), "<=", 0.0005, "correct 25D vol");
     cmp_ok(abs($BOM_50 - $calculated_delta_from_csv->{50}), "<=", 0.0005, "correct 50D vol");
@@ -130,7 +133,8 @@ subtest "convert moneyness to delta" => sub {
     is(
         $v->get_volatility({
                 delta => $shuffled_deltas[0],
-                days  => 7
+                from  => $v->recorded_date,
+                to    => $v->effective_date->plus_time_interval('7d'),
             }
         ),
         $deltas->{$shuffled_deltas[0]},
