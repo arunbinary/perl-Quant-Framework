@@ -107,16 +107,6 @@ has symbol => (
     required => 1,
 );
 
-has _market_name => (
-    is         => 'ro',
-    isa        => 'Str',
-    lazy_build => 1,
-);
-
-sub _build__market_name {
-    return shift->underlying_config->market_name;
-}
-
 =head2 recorded_date
 
 The date (and time) that the surface was recorded, as a Date::Utility.
@@ -786,24 +776,6 @@ sub _extrapolate_smile {
     my $extrapolation_method = '_extrapolate_smile_' . $extrapolation_direction;
 
     return $self->$extrapolation_method($seek);
-}
-
-#returns initial risk reversal as a hash-ref
-sub _get_initial_rr {
-    my ($self, $market) = @_;
-
-    my %initial_rr;
-    my $rr_adjustment;
-    if ($self->_market_name ne 'indices') {
-        $rr_adjustment = {
-            rr_25 => 0.1,
-            rr_10 => 0.1
-        };
-        $initial_rr{RR_25} = $rr_adjustment->{rr_25} * $market->{RR_25};
-        $initial_rr{RR_10} = $rr_adjustment->{rr_10} * $market->{RR_10} if (exists $market->{RR_10});
-    }
-
-    return \%initial_rr;
 }
 
 sub _extrapolate_smile_up {
