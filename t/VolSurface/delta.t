@@ -4,7 +4,6 @@ use warnings;
 use 5.010;
 use Test::Most;
 
-use Test::FailWarnings;
 use List::Util qw( max );
 use Test::MockObject::Extends;
 use Test::Warn;
