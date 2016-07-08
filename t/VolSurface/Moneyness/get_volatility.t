@@ -171,8 +171,6 @@ subtest "get_vol for a smile that has a single point" => sub {
 };
 
 subtest "get_vol for delta" => sub {
-    plan tests => 10;
-
     my $new_v = Quant::Framework::VolSurface::Moneyness->new(
         recorded_date     => $recorded_date,
         underlying_config => $underlying_config,
@@ -183,16 +181,8 @@ subtest "get_vol for delta" => sub {
     );
 
     my $from = $new_v->recorded_date;
-    ok(!exists $new_v->corresponding_deltas->{8}, "corresponding_deltas does not exist before request");
     lives_ok { $new_v->get_volatility({delta => 50, from => $from, to => $from->plus_time_interval('8d')}) } "can get_vol for 50 delta";
-    is(scalar keys %{$new_v->corresponding_deltas}, 1, "1 delta smile added");
-    ok(exists $new_v->corresponding_deltas->{8}, "calculated delta smile is saved on corresponding_deltas");
-
-    ok(!exists $new_v->corresponding_deltas->{8.5}, "corresponding_deltas does not exist before request");
     lives_ok { $new_v->get_volatility({delta => 50, from => $from, to => $from->plus_time_interval('8d12h')}) } "can get_vol for 50 delta";
-    is(scalar keys %{$new_v->corresponding_deltas}, 2, "2 delta smiles added");
-    ok(exists $new_v->corresponding_deltas->{8.5}, "calculated delta smile is saved on corresponding_deltas");
-
     lives_ok { $new_v->get_volatility({delta => 0.05, from => $from, to => $from->plus_time_interval('7d')}) } "can get_vol for 0.05 delta";
     lives_ok { $new_v->get_volatility({delta => 99,   from => $from, to => $from->plus_time_interval('7d')}) } "can get_vol for 99 delta";
 };

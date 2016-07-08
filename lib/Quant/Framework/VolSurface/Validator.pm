@@ -364,13 +364,7 @@ sub _check_structure {
     }
 
     @days = sort { $a <=> $b } @days;
-    my @volatility_level;
-
-    if ($type eq 'delta') {
-        @volatility_level = sort { $a <=> $b } @{$surface->deltas};
-    } else {
-        @volatility_level = sort { $a <=> $b } @{$surface->moneynesses};
-    }
+    my @volatility_level = @{$surface->smile_points};
 
     foreach my $vol_level (@volatility_level) {
         if ($vol_level !~ /^\d+\.?\d+$/) {

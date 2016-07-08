@@ -70,7 +70,7 @@ sub _build_surface {
 
     my $date = $self->for_date // Date::Utility->new;
 
-    return $self->document->{surface} // $self->document->{surfaces}{$self->calendar->standard_closing_on($date)->time_hhmm} // {};
+    return $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm} // {};
 }
 
 has variance_table => (
@@ -89,11 +89,11 @@ sub _build_variance_table {
 
     # keys are tenor in epoch, values are associated variances.
     my %table = (
-        $self->recorded_date->epoch => {map { $_ => 0 } @{$self->moneynesses}},
+        $self->recorded_date->epoch => {map { $_ => 0 } @{$self->smile_points}},
     );
     foreach my $tenor (@{$self->original_term_for_smile}) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $close->seconds_after_midnight . 's')->epoch;
-        foreach my $moneyness (@{$self->moneynesses}) {
+        foreach my $moneyness (@{$self->smile_points}) {
             my $volatility = $raw_surface->{$tenor}{smile}{$moneyness};
             $table{$epoch}{$moneyness} = $volatility**2 * $tenor if $volatility;
         }
@@ -128,19 +128,6 @@ has atm_spread_point => (
     is      => 'ro',
     isa     => 'Num',
     default => 100,
-);
-
-=head2 corresponding_deltas
-
-Stores the corresponding moneyness smile in terms on delta.
-This is aimed to reduced computation time.
-
-=cut
-
-has corresponding_deltas => (
-    is      => 'rw',
-    isa     => 'HashRef',
-    default => sub { {} },
 );
 
 =head2 spot_reference
@@ -225,24 +212,6 @@ sub interpolate {
     return $interpolator->$method($args->{sought_point});
 }
 
-=head2 set_corresponding_deltas
-
-Since we allow getting volatility for a particular delta point
-on a moneyness surface, here is how you could cache it.
-
-    $moneyness->set_corresponding_deltas(7, {25 => 0.1, 50 => 0.2, 75 => 0.3});
-
-=cut
-
-sub set_corresponding_deltas {
-    my ($self, $days, $smile) = @_;
-
-    my $deltas = $self->corresponding_deltas;
-    $deltas->{$days} = $smile;
-
-    return;
-}
-
 # rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
 override get_market_rr_bf => sub {
     my ($self, $day) = @_;
@@ -259,14 +228,7 @@ sub _calculate_vol_for_delta {
 
     my $delta = $args->{delta};
     my $days  = $args->{days};
-    my $smile;
-
-    if (exists $self->corresponding_deltas->{$days}) {
-        $smile = $self->corresponding_deltas->{$days};
-    } else {
-        $smile = $self->_convert_moneyness_smile_to_delta($days);
-        $self->set_corresponding_deltas($days, $smile);
-    }
+    my $smile = $self->_convert_moneyness_smile_to_delta($days);
 
     return $smile->{$delta}
         ? $smile->{$delta}
@@ -307,35 +269,26 @@ sub _convert_moneyness_smile_to_delta {
 
     my %strikes =
         map { get_strike_for_moneyness({moneyness => $_ / 100, spot => $self->spot_reference,}) => $moneyness_smile->{$_} } keys %$moneyness_smile;
+
+    my $tiy    = $days / 365;
+    my $r_rate = $self->builder->build_interest_rate->interest_rate_for($tiy);
+    my $q_rate = $self->builder->build_dividend->dividend_rate_for($tiy);
     my %deltas;
     foreach my $strike (keys %strikes) {
         my $vol   = $strikes{$strike};
-        my $delta = $self->_convert_strike_to_delta({
-            strike => $strike,
-            days   => $days,
-            vol    => $vol
+        my $delta = 100 * get_delta_for_strike({
+            strike           => $strike,
+            atm_vol          => $vol,
+            t                => $tiy,
+            spot             => $self->spot_reference,
+            r_rate           => $r_rate,
+            q_rate           => $q_rate,
+            premium_adjusted => $self->underlying_config->market_convention->{delta_premium_adjusted},
         });
         $deltas{$delta} = $vol;
     }
 
     return \%deltas,;
-}
-
-sub _convert_strike_to_delta {
-    my ($self, $args) = @_;
-    my ($days, $vol, $strike) = @{$args}{'days', 'vol', 'strike'};
-    my $tiy     = $days / 365;
-    my $builder = $self->builder;
-
-    return 100 * get_delta_for_strike({
-        strike           => $strike,
-        atm_vol          => $vol,
-        t                => $tiy,
-        spot             => $self->spot_reference,
-        r_rate           => $builder->build_interest_rate->interest_rate_for($tiy),
-        q_rate           => $builder->build_dividend->dividend_rate_for($tiy),
-        premium_adjusted => $self->underlying_config->market_convention->{delta_premium_adjusted},
-    });
 }
 
 sub _extrapolate_smile_down {
