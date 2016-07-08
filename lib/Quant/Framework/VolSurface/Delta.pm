@@ -87,7 +87,7 @@ sub _build_variance_table {
         });
     foreach my $tenor (@{$self->original_term_for_smile}) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
-        foreach my $delta (@{$self->deltas}) {
+        foreach my $delta (@{$self->smile_points}) {
             my $volatility = $raw_surface->{$tenor}{smile}{$delta};
             $table{$epoch}{$delta} = $volatility**2 * $tenor if $volatility;
         }
@@ -206,7 +206,7 @@ sub get_smile {
     my $variances_to   = $self->get_variances($to);
     my $smile;
 
-    foreach my $delta (@{$self->deltas}) {
+    foreach my $delta (@{$self->smile_points}) {
         $smile->{$delta} = sqrt(($variances_to->{$delta} - $variances_from->{$delta}) / $number_of_days);
     }
 
@@ -233,7 +233,7 @@ sub get_variances {
     my $weight2 = $weight + $self->get_weight($date, $closest[1]);
 
     my %variances;
-    foreach my $delta (@{$self->deltas}) {
+    foreach my $delta (@{$self->smile_points}) {
         my $var1 = $table->{$closest[0]->epoch}{$delta};
         my $var2 = $table->{$closest[1]->epoch}{$delta};
         $variances{$delta} = $var1 + ($var2 - $var1) / $weight2 * $weight;
