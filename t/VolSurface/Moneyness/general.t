@@ -112,32 +112,4 @@ subtest 'get surface spot reference' => sub {
     ok(looks_like_number($spot), 'spot is a number');
 };
 
-subtest _convert_strike_to_delta => sub {
-    plan tests => 3;
-
-    my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('SPC');
-    $underlying_config->{spot} = 100;
-
-    my $surface = {
-        'ON' => {smile => {100 => 0.1}},
-        '1W' => {smile => {100 => 0.2}}};
-    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
-        underlying_config => $underlying_config,
-        surface           => $surface,
-        recorded_date     => Date::Utility->new('2012-06-14 08:00:00'),
-        spot_reference    => 100,
-        chronicle_reader  => $chronicle_r,
-        chronicle_writer  => $chronicle_w,
-    );
-    my $args = {
-        strike => 100,
-        days   => 7,
-        vol    => 0.11
-    };
-    my $delta;
-    lives_ok { $delta = $volsurface->_convert_strike_to_delta($args) } 'can convert strike to delta';
-    ok(looks_like_number($delta), 'delta is a number');
-    cmp_ok($delta, '<=', 100, 'delta is <= 100');
-};
-
 done_testing;
