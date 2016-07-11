@@ -1,4 +1,4 @@
-pdayackage Quant::Framework::VolSurface;
+package Quant::Framework::VolSurface;
 
 =head1 NAME
 
