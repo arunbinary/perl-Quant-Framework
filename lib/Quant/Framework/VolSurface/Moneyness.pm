@@ -187,7 +187,7 @@ sub get_volatility {
 
     my $smile = $self->calculate_smile($args->{from}, $args->{to});
 
-    die "Moneyness cannot be zero or negative." if $moneyness <= 0;
+    die "Moneyness cannot be zero or negative." if $moneyness < 0;
 
     return $smile->{$moneyness} if $smile->{$moneyness};
 
@@ -265,6 +265,8 @@ sub _interpolate_delta {
 
 sub _convert_moneyness_smile_to_delta {
     my ($self, $from, $to) = @_;
+
+    die 'dates are undefined.' if (not $from or not $to);
 
     my $moneyness_smile = $self->calculate_smile($from, $to);
 

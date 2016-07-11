@@ -176,7 +176,7 @@ sub get_volatility {
         : (defined $args->{strike}) ? $self->_convert_strike_to_delta($args)
         :                             $self->_convert_moneyness_to_delta($args);
 
-    die 'Delta cannot be zero or negative.' if $delta <= 0;
+    die 'Delta cannot be zero or negative.' if $delta < 0;
 
     my $smile = $self->calculate_smile($args->{from}, $args->{to});
 

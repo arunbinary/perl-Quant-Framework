@@ -73,16 +73,23 @@ subtest 'get_smile' => sub {
     my $from    = $surface->recorded_date;
     my $to      = $from->plus_time_interval('1d');
 
-    my $smile = $surface->get_smile($from, $to);
+    my $smile = $surface->calculate_smile($from, $to);
     is $smile->{25}, 0.158943882847805,  'volatility for 25D';
     is $smile->{50}, 0.0794719414239026, 'volatility for 50D';
     is $smile->{75}, 0.238415824271708,  'volatility for 75D';
 
     my $later_date = $from->plus_time_interval('3d');
-    my $smile3 = $surface->get_smile($from, $later_date);
+    my $smile3 = $surface->calculate_smile($from, $later_date);
     cmp_ok $smile3->{25}, '!=', $smile->{25}, 'volatility for 25D is different when both dates of the requested date is on different period';
     cmp_ok $smile3->{50}, '!=', $smile->{50}, 'volatility for 50D is different when both dates of the requested date is on different period';
     cmp_ok $smile3->{75}, '!=', $smile->{75}, 'volatility for 75D is different when both dates of the requested date is on different period';
+};
+
+subtest 'get_surface_smile' => sub {
+    my $surface = _get_surface();
+
+    ok keys %{$surface->get_surface_smile(7)},  'return smile if present on surface';
+    ok !keys %{$surface->get_surface_smile(2)}, 'return empty hash if smile is not present on surface';
 };
 
 subtest set_smile => sub {
