@@ -59,6 +59,7 @@ t/rc/.perlcriticrc
 t/rc/.perltidyrc
 t/tentative_events.t
 t/VolSurface/delta.t
+t/VolSuface/volatility_spread.t
 t/VolSurface/Delta/BloombergSurfaces.pm
 t/VolSurface/Delta/ClarkSurfaces.pm
 t/VolSurface/Delta/interpolation/EURUSD_20120113024000.csv
