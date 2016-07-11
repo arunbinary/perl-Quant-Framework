@@ -101,7 +101,6 @@ sub _build_variance_table {
     my %table = (
         $self->recorded_date->epoch => {map { $_ => 0 } @{$self->smile_points}},
     );
-
     foreach my $tenor (@{$self->original_term_for_smile}) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $close->seconds_after_midnight . 's')->epoch;
         foreach my $moneyness (@{$self->smile_points}) {
@@ -173,28 +172,37 @@ USAGE:
 sub get_volatility {
     my ($self, $args) = @_;
 
-    $self->_check_args($args);
+    if (scalar(grep { defined $args->{$_} } qw(delta moneyness strike)) != 1) {
+        die("Must pass exactly one of [delta, moneyness, strike] to get_volatility.");
+    }
 
-    # we are handling delta seperately because it involves
-    # a lot more steps to calculate vol for a delta point
-    # on a moneyness surface. This is needed for Vanna Volga Engine.
-    return $self->_calculate_vol_for_delta($args) if $args->{delta};
+    die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
-    my $moneyness =
-          $args->{strike}
-        ? $args->{strike} / $self->spot_reference * 100
-        : $args->{moneyness};
+    $args->{days} = ($args->{to}->epoch - $args->{from}->epoch) / 86400;
 
-    my $smile = $self->calculate_smile($args->{from}, $args->{to});
+    my $vol;
+    if ($args->{delta}) {
 
-    die "Moneyness cannot be zero or negative." if $moneyness < 0;
+        # we are handling delta seperately because it involves
+        # a lot more steps to calculate vol for a delta point
+        # on a moneyness surface
+        $vol = $self->_calculate_vol_for_delta({
+            delta => $args->{delta},
+            days  => $args->{days},
+        });
+    } else {
+        my $sought_point =
+              $args->{strike}
+            ? $args->{strike} / $self->spot_reference * 100
+            : $args->{moneyness};
 
-    return $smile->{$moneyness} if $smile->{$moneyness};
+        my $calc_args = {
+            sought_point => $sought_point,
+            days         => $args->{days}};
+        $vol = $self->SUPER::get_volatility($calc_args);
+    }
 
-    return $self->interpolate({
-        smile        => $smile,
-        sought_point => $moneyness
-    });
+    return $vol;
 }
 
 =head2 interpolate
@@ -209,34 +217,35 @@ sub interpolate {
     my ($self, $args) = @_;
 
     my $method = keys %{$args->{smile}} < 5 ? 'quadratic' : 'cubic';
+    my $interpolator = Math::Function::Interpolator->new(points => $args->{smile});
 
-    return Math::Function::Interpolator->new(points => $args->{smile})->$method($args->{sought_point});
+    return $interpolator->$method($args->{sought_point});
 }
 
 # rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
-sub get_market_rr_bf {
-    my ($self, $from, $to) = @_;
+override get_market_rr_bf => sub {
+    my ($self, $day) = @_;
 
-    my %smile = map { $_ => $self->_calculate_vol_for_delta({delta => $_, from => $from, to => $to}) } qw(25 50 75);
+    my %smile = map { $_ => $self->_calculate_vol_for_delta({delta => $_, days => $day}) } qw(25 50 75);
 
     return $self->get_rr_bf_for_smile(\%smile);
-}
+};
 
 ## PRIVATE ##
 
 sub _calculate_vol_for_delta {
     my ($self, $args) = @_;
 
-    my ($delta, $from, $to) = @{$args}{'delta', 'from', 'to'};
+    my $delta = $args->{delta};
+    my $days  = $args->{days};
+    my $smile = $self->_convert_moneyness_smile_to_delta($days);
 
-    my $smile = $self->_convert_moneyness_smile_to_delta($from, $to);
-
-    return $smile->{$delta} if $smile->{$delta};
-
-    return $self->_interpolate_delta({
-        smile        => $smile,
-        sought_point => $delta
-    });
+    return $smile->{$delta}
+        ? $smile->{$delta}
+        : $self->_interpolate_delta({
+            smile        => $smile,
+            sought_point => $delta
+        });
 }
 
 sub _interpolate_delta {
@@ -264,16 +273,14 @@ sub _interpolate_delta {
 }
 
 sub _convert_moneyness_smile_to_delta {
-    my ($self, $from, $to) = @_;
+    my ($self, $days) = @_;
 
-    die 'dates are undefined.' if (not $from or not $to);
-
-    my $moneyness_smile = $self->calculate_smile($from, $to);
+    my $moneyness_smile = $self->get_smile($days);
 
     my %strikes =
         map { get_strike_for_moneyness({moneyness => $_ / 100, spot => $self->spot_reference,}) => $moneyness_smile->{$_} } keys %$moneyness_smile;
 
-    my $tiy    = ($to->epoch - $from->epoch) / (86400 * 365);
+    my $tiy    = $days / 365;
     my $r_rate = $self->builder->build_interest_rate->interest_rate_for($tiy);
     my $q_rate = $self->builder->build_dividend->dividend_rate_for($tiy);
     my %deltas;
@@ -292,6 +299,14 @@ sub _convert_moneyness_smile_to_delta {
     }
 
     return \%deltas,;
+}
+
+sub _extrapolate_smile_down {
+    my $self = shift;
+
+    my $first_market_point = $self->original_term_for_smile->[0];
+
+    return $self->surface->{$first_market_point}->{smile};
 }
 
 =head2 clone

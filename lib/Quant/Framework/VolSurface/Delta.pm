@@ -169,7 +169,21 @@ USAGE:
 sub get_volatility {
     my ($self, $args) = @_;
 
-    $self->_check_args($args);
+    # args validity checks
+    die("Must pass exactly one of delta, strike or moneyness to get_volatility.")
+        if (scalar(grep { defined $args->{$_} } qw(delta strike moneyness)) != 1);
+
+    die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
+
+    die 'Inverted dates[from=' . $args->{from}->datetime . ' to= ' . $args->{to}->datetime . '] to get volatility.'
+        if $args->{from}->epoch > $args->{to}->epoch;
+
+    # This sanity check prevents negative variance
+    die 'Requested dates are too far in the past ['
+        . $args->{from}->datetime
+        . '] with surface recorded date ['
+        . $self->recorded_date->datetime . ']'
+        if $args->{from}->epoch < $self->recorded_date->epoch;
 
     my $delta =
           (defined $args->{delta})  ? $args->{delta}
@@ -178,7 +192,7 @@ sub get_volatility {
 
     die 'Delta cannot be zero or negative.' if $delta < 0;
 
-    my $smile = $self->calculate_smile($args->{from}, $args->{to});
+    my $smile = $self->get_smile($args->{from}, $args->{to});
 
     return $smile->{$delta} if $smile->{$delta};
 
@@ -188,16 +202,93 @@ sub get_volatility {
     });
 }
 
-=head2 get_market_rr_bf
+=head2 get_smile
 
-Returns the rr and bf values for a given day
+Calculate the requested smile from volatility surface.
 
 =cut
 
-sub get_market_rr_bf {
+sub get_smile {
     my ($self, $from, $to) = @_;
 
-    return $self->get_rr_bf_for_smile($self->calculate_smile($from, $to));
+    # each smile is calculated on the fly.
+    my $number_of_days = ($to->epoch - $from->epoch) / 86400;
+    my $variances_from = $self->get_variances($from);
+    my $variances_to   = $self->get_variances($to);
+    my $smile;
+
+    foreach my $delta (@{$self->smile_points}) {
+        $smile->{$delta} = sqrt(($variances_to->{$delta} - $variances_from->{$delta}) / $number_of_days);
+    }
+
+    return $smile;
+}
+
+=head2 get_variances
+
+Calculate the variance for a given date based on volatility surface data.
+
+=cut
+
+sub get_variances {
+    my ($self, $date) = @_;
+
+    my $epoch = $date->epoch;
+    my $table = $self->variance_table;
+
+    return $table->{$epoch} if $table->{$epoch};
+
+    my @available_tenors = sort { $a <=> $b } keys %{$table};
+    my @closest = map { Date::Utility->new($_) } @{find_closest_numbers_around($date->epoch, \@available_tenors, 2)};
+    my $weight = $self->get_weight($closest[0], $date);
+    my $weight2 = $weight + $self->get_weight($date, $closest[1]);
+
+    my %variances;
+    foreach my $delta (@{$self->smile_points}) {
+        my $var1 = $table->{$closest[0]->epoch}{$delta};
+        my $var2 = $table->{$closest[1]->epoch}{$delta};
+        $variances{$delta} = $var1 + ($var2 - $var1) / $weight2 * $weight;
+    }
+
+    return \%variances;
+}
+
+=head2 get_weight
+
+Get the weight between to given dates.
+
+=cut
+
+sub get_weight {
+    my ($self, $date1, $date2) = @_;
+
+    my ($date1_epoch, $date2_epoch) = ($date1->epoch, $date2->epoch);
+    my $time_diff       = $date2_epoch - $date1_epoch;
+    my $weight_interval = 4 * 3600;
+
+    my $remainder     = $date1_epoch % $weight_interval;
+    my $next_interval = $date1_epoch - $remainder + $weight_interval;
+
+    my @dates = ($date1_epoch, $next_interval);
+    if ($time_diff <= $weight_interval and $next_interval != $date2_epoch) {
+        push @dates, $date2_epoch;
+    } else {
+        my $start = $next_interval;
+        while ($start < $date2_epoch) {
+            my $to_add = min($date2_epoch - $start, $weight_interval);
+            $start += $to_add;
+            push @dates, $start;
+        }
+    }
+
+    my $calendar     = $self->builder->build_trading_calendar;
+    my $total_weight = 0;
+    for (my $i = 0; $i < $#dates; $i++) {
+        my $dt = $dates[$i + 1] - $dates[$i];
+        $total_weight += $calendar->weight_on(Date::Utility->new($dates[$i])) * $dt / 86400;
+    }
+
+    return $total_weight;
 }
 
 =head2 interpolate
