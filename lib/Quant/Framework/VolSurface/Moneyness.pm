@@ -15,12 +15,11 @@ extends 'Quant::Framework::VolSurface';
 
 use Date::Utility;
 use VolSurface::Utils qw(get_delta_for_strike get_strike_for_moneyness);
-use Try::Tiny;
+use Scalar::Util qw( looks_like_number );
 use Math::Function::Interpolator;
 use List::MoreUtils qw(indexes);
-use List::Util qw(min first);
+use List::Util qw(min max);
 use Storable qw( dclone );
-use JSON qw(from_json);
 
 sub _document_content {
     my $self = shift;
@@ -179,30 +178,132 @@ sub get_volatility {
     die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
     $args->{days} = ($args->{to}->epoch - $args->{from}->epoch) / 86400;
+    delete $args->{to};
+    delete $args->{from};
 
-    my $vol;
-    if ($args->{delta}) {
+    die "Argument 'days' must be positive, non-zero number." if $args->{days} <= 0;
 
-        # we are handling delta seperately because it involves
-        # a lot more steps to calculate vol for a delta point
-        # on a moneyness surface
-        $vol = $self->_calculate_vol_for_delta({
-            delta => $args->{delta},
-            days  => $args->{days},
-        });
-    } else {
-        my $sought_point =
-              $args->{strike}
-            ? $args->{strike} / $self->spot_reference * 100
-            : $args->{moneyness};
+    # we are handling delta seperately because it involves
+    # a lot more steps to calculate vol for a delta point
+    # on a moneyness surface
+    return $self->_calculate_vol_for_delta($args) if $args->{delta};
 
-        my $calc_args = {
-            sought_point => $sought_point,
-            days         => $args->{days}};
-        $vol = $self->SUPER::get_volatility($calc_args);
+    my $moneyness =
+          $args->{strike}
+        ? $args->{strike} / $self->spot_reference * 100
+        : $args->{moneyness};
+
+    die "Sought point must be a number." if not looks_like_number($moneyness);
+    die "Sought point must be a positive number." if $moneyness < 0;
+
+    my $smile = $self->get_smile($args->{days});
+
+    return $smile->{$moneyness} if $smile->{$moneyness};
+
+    return $self->interpolate({
+        smile        => $smile,
+        sought_point => $moneyness,
+    });
+}
+
+=head2 get_smile
+
+Get the smile for specific day.
+
+Usage:
+
+    my $smile = $vol_surface->get_smile($days);
+
+=cut
+
+sub get_smile {
+    my ($self, $day) = @_;
+
+    die("day[$day] must be a number.")
+        unless looks_like_number($day);
+
+    my $surface = $self->surface;
+
+    return $surface->{$day}{smile} if (exists $surface->{$day} and exists $surface->{$day}{smile});
+    return $self->_compute_and_set_smile($day);
+}
+
+sub _compute_and_set_smile {
+    my ($self, $day) = @_;
+
+    my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_smile);
+    my $method =
+        ($self->_is_between($day, \@points))
+        ? '_interpolate_smile'
+        : '_extrapolate_smile';
+    my $smile = $self->$method($day, \@points);
+
+    $self->set_smile({
+        days  => $day,
+        smile => $smile
+    });
+
+    return $smile;
+}
+
+sub _interpolate_smile {
+    my ($self, $seek, $points) = @_;
+
+    my $surface          = $self->surface;
+    my $first_point      = $points->[0];
+    my $second_point     = $points->[1];
+    my $interpolate_func = $self->_market_maturities_interpolation_function($seek, $first_point, $second_point);
+    my $interpolated_smile;
+
+    foreach my $smile_point (@{$self->smile_points}) {
+        my $first_iv  = $surface->{$first_point}->{smile}->{$smile_point};
+        my $second_iv = $surface->{$second_point}->{smile}->{$smile_point};
+        $interpolated_smile->{$smile_point} = $interpolate_func->($first_iv, $second_iv);
     }
 
-    return $vol;
+    return $interpolated_smile;
+}
+
+sub _extrapolate_smile {
+    my ($self, $seek, $points) = @_;
+
+    my $index = $seek > max(@$points) ? -1 : 0;
+
+    # we do not extrapolate for moneyness smiles. We will take the market points at both ends.
+    return $self->surface->{$self->original_term_for_smile->[$index]}->{smile};
+}
+
+sub _market_maturities_interpolation_function {
+    my ($self, $T, $T1, $T2) = @_;
+
+    # Implements interpolation over time based on the way Iain M Clark does
+    # it in Foreign Exchange Option Pricing, A Practitioner's Guide, page 70.
+    my $effective_date = $self->effective_date;
+
+    my %dates = (
+        T  => $effective_date->plus_time_interval($T - 1 . 'd23h59m59s'),
+        T1 => $effective_date->plus_time_interval($T1 - 1 . 'd23h59m59s'),
+        T2 => $effective_date->plus_time_interval($T2 - 1 . 'd23h59m59s'),
+    );
+
+    my $tau1 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T}) / 365;
+    my $tau2 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T2}) / 365;
+
+    warn(     'Error in volsurface['
+            . $self->recorded_date->datetime
+            . '] for symbol['
+            . $self->underlying_config->symbol
+            . '] for maturity['
+            . $T
+            . '] points ['
+            . $T1 . ','
+            . $T2 . "]\n")
+        unless $tau2;
+
+    return sub {
+        my ($vol1, $vol2) = @_;
+        return sqrt(($tau1 / $tau2) * ($T2 / $T) * $vol2**2 + (($tau2 - $tau1) / $tau2) * ($T1 / $T) * $vol1**2);
+    };
 }
 
 =head2 interpolate
@@ -217,9 +318,8 @@ sub interpolate {
     my ($self, $args) = @_;
 
     my $method = keys %{$args->{smile}} < 5 ? 'quadratic' : 'cubic';
-    my $interpolator = Math::Function::Interpolator->new(points => $args->{smile});
 
-    return $interpolator->$method($args->{sought_point});
+    return Math::Function::Interpolator->new(points => $args->{smile})->$method($args->{sought_point});
 }
 
 # rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
@@ -299,14 +399,6 @@ sub _convert_moneyness_smile_to_delta {
     }
 
     return \%deltas,;
-}
-
-sub _extrapolate_smile_down {
-    my $self = shift;
-
-    my $first_market_point = $self->original_term_for_smile->[0];
-
-    return $self->surface->{$first_market_point}->{smile};
 }
 
 =head2 clone

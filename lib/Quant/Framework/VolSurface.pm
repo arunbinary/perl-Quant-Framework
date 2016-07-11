@@ -120,7 +120,7 @@ has recorded_date => (
 );
 
 sub _build_recorded_date {
-    my $self          = shift;
+    my $self = shift;
 
     return Date::Utility->new($self->document->{date});
 }
@@ -524,6 +524,28 @@ sub _compute_and_set_smile_spread {
     return \%smile_spread;
 }
 
+sub _get_points_to_interpolate {
+    my ($self, $seek, $available_points) = @_;
+    die('Need 2 or more term structures to interpolate.')
+        if scalar @$available_points <= 1;
+
+    return @{find_closest_numbers_around($seek, $available_points, 2)};
+}
+
+sub _is_between {
+    my ($self, $seek, $points) = @_;
+
+    my @points = @$points;
+
+    die('some of the points are not defined')
+        if (notall { defined $_ } @points);
+    die('less than two available points')
+        if (scalar @points < 2);
+
+    return if $seek > max(@points) or $seek < min(@points);
+    return 1;
+}
+
 =head2 get_day_for_tenor
 
 USAGE:
@@ -552,249 +574,6 @@ sub get_day_for_tenor {
     }
 
     return $day;
-}
-
-sub _get_points_to_interpolate {
-    my ($self, $seek, $available_points) = @_;
-    die('Need 2 or more term structures to interpolate.')
-        if scalar @$available_points <= 1;
-
-    return @{find_closest_numbers_around($seek, $available_points, 2)};
-}
-
-sub _is_between {
-    my ($self, $seek, $points) = @_;
-
-    my @points = @$points;
-
-    die('some of the points are not defined')
-        if (notall { defined $_ } @points);
-    die('less than two available points')
-        if (scalar @points < 2);
-
-    return if (all { $_ < $seek } @points);
-    return if (all { $_ > $seek } @points);
-    return 1;
-}
-
-sub _market_maturities_interpolation_function {
-    my ($self, $T, $T1, $T2) = @_;
-
-    # Implements interpolation over time based on the way Iain M Clark does
-    # it in Foreign Exchange Option Pricing, A Practitioner's Guide, page 70.
-    my $effective_date = $self->effective_date;
-
-    my %dates = (
-        T  => $effective_date->plus_time_interval($T - 1 . 'd23h59m59s'),
-        T1 => $effective_date->plus_time_interval($T1 - 1 . 'd23h59m59s'),
-        T2 => $effective_date->plus_time_interval($T2 - 1 . 'd23h59m59s'),
-    );
-
-    my $tau1 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T}) / 365;
-    my $tau2 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T2}) / 365;
-
-    warn(     'Error in volsurface['
-            . $self->recorded_date->datetime
-            . '] for symbol['
-            . $self->underlying_config->symbol
-            . '] for maturity['
-            . $T
-            . '] points ['
-            . $T1 . ','
-            . $T2 . "]\n")
-        unless $tau2;
-
-    return sub {
-        my ($vol1, $vol2) = @_;
-        return sqrt(($tau1 / $tau2) * ($T2 / $T) * $vol2**2 + (($tau2 - $tau1) / $tau2) * ($T1 / $T) * $vol1**2);
-    };
-}
-
-=head1 METHODS
-
-=head2 get_volatility
-
-USAGE:
-
-    my $vol = $vol_surface->get_volatility({
-                   days  => 7,
-                   delta => 50,
-               });
-
-Interpolates (on the two-dimensional vol surface) using Bloomberg's method.
-
-=cut
-
-sub get_volatility {
-    my ($self, $args) = @_;
-
-    my $sought_point = $args->{sought_point};
-    my $days         = $args->{days};
-
-    $self->_validate_sought_values($days, $sought_point);
-
-    my $vol = $self->_get_volatility_from_surface({
-        days         => $days,
-        sought_point => $sought_point,
-    });
-
-    return $vol;
-}
-
-sub _validate_sought_values {
-    my ($self, $day, $sought_point) = @_;
-
-    if (notall { defined $_ } ($sought_point, $day)) {
-        $sought_point ||= '';
-        $day          ||= '';
-        die("Days[$day] or sought_point[$sought_point] is undefined for underlying[" . $self->symbol . "]");
-    }
-
-    if (!isnum($sought_point)) {
-        die("Point[$sought_point] must be a number");
-    }
-
-    if ($day <= 0 or $sought_point < 0) {
-        die("get_volatility requires positive numeric days[$day] and sought_point[$sought_point]");
-    }
-
-    return 1;
-}
-
-sub _get_volatility_from_surface {
-    my ($self, $args) = @_;
-
-    my $day          = $args->{days};
-    my $sought_point = $args->{sought_point};
-    my $vol;
-
-    my $smile = $self->get_smile($day);
-    if ($smile->{$sought_point}) {
-        $vol = $smile->{$sought_point};
-    } else {
-        $vol = $self->interpolate({
-            smile        => $smile,
-            sought_point => $sought_point,
-        });
-    }
-
-    return $vol;
-}
-
-=head2 get_smile
-
-Get the smile for specific day.
-
-Usage:
-
-    my $smile = $vol_surface->get_smile($days);
-
-=cut
-
-sub get_smile {
-    my ($self, $day) = @_;
-
-    die("day[$day] must be a number.")
-        unless looks_like_number($day);
-
-    my $surface = $self->surface;
-    my $smile =
-        (exists $surface->{$day} and exists $surface->{$day}->{smile})
-        ? $surface->{$day}->{smile}
-        : $self->_compute_and_set_smile($day);
-
-    return $smile;
-}
-
-sub _compute_and_set_smile {
-    my ($self, $day) = @_;
-
-    my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_smile);
-    my $method =
-        ($self->_is_between($day, \@points))
-        ? '_interpolate_smile'
-        : '_extrapolate_smile';
-    my $smile = $self->$method($day, \@points);
-
-    $self->set_smile({
-        days  => $day,
-        smile => $smile
-    });
-
-    return $smile;
-}
-
-sub _days_with_smiles {
-    my $self = shift;
-    my @days_with_smiles =
-        grep { exists $self->surface->{$_}->{smile} } @{$self->term_by_day};
-    return \@days_with_smiles;
-}
-
-sub _interpolate_smile {
-    my ($self, $seek, $points) = @_;
-
-    my $surface          = $self->surface;
-    my $first_point      = $points->[0];
-    my $second_point     = $points->[1];
-    my $interpolate_func = $self->_market_maturities_interpolation_function($seek, $first_point, $second_point);
-    my $interpolated_smile;
-
-    foreach my $smile_point (@{$self->smile_points}) {
-        my $first_iv  = $surface->{$first_point}->{smile}->{$smile_point};
-        my $second_iv = $surface->{$second_point}->{smile}->{$smile_point};
-        $interpolated_smile->{smile}->{$smile_point} = $interpolate_func->($first_iv, $second_iv);
-    }
-
-    return $interpolated_smile->{smile};
-}
-
-sub _extrapolate_smile {
-    my ($self, $seek, $points) = @_;
-
-    my $extrapolation_direction = $self->_get_extrapolate_direction($seek, $points);
-    my $extrapolation_method = '_extrapolate_smile_' . $extrapolation_direction;
-
-    return $self->$extrapolation_method($seek);
-}
-
-sub _extrapolate_smile_up {
-    my $self = shift;
-
-# This is not an ideal solution and duration of contracts is not supposed to be more than 1 year
-# But, you'll get a 1 year smile if the unexpected happens :-P
-    my $last_term = $self->original_term_for_smile->[-1];
-    return $self->surface->{$last_term}->{smile};
-}
-
-sub _get_extrapolate_direction {
-    my ($self, $seek, $points) = @_;
-
-    my @points = @$points;
-    my $direction = ($seek > max(@points)) ? 'up' : 'down';
-
-    return $direction;
-}
-
-sub _get_days_for_expiry_date {
-    my ($self, $expiry_date) = @_;
-
-# In general, days_between the effective_date of the surface and the asked-for
-# expiry_date gives us what we want.
-#
-# However, due to vol-cuts logic cutting to wherever the cut time falls within the
-# effective day of the vol, and due to FX end-of-day being at GMT23:59, we
-# cut the vol back into the previous GMT day, e.g. we cut the NY1000 vol for contracts
-# expiring on the 24th back to GMT23:59 on the 23rd. This means that if we ask
-# for a vol for the 23rd, and the underling closes after NY1700, we need to use the
-# vol for the next day. We do this by considering days between the effective day of
-# the recorded date and the expiry.
-# This can potentially cause problems if the effective date (surface recorded date) is too old
-    my $days = $self->_vol_utils->effective_date_for($expiry_date)->days_between($self->effective_date);
-
-# If we asked for the vol for an expiry date (which translated to an integer number
-# of days), default to the 1-day vol if
-    return max($days, 1);
 }
 
 =head2 set_smile
@@ -1038,6 +817,19 @@ sub save {
     }
 
     return $self->chronicle_writer->set('volatility_surfaces', $self->symbol, $self->_document_content, $self->recorded_date);
+}
+
+=head2 get_surface_smile
+
+Returns the smile on the surface.
+Returns an empty hash reference if not present.
+
+=cut
+
+sub get_surface_smile {
+    my ($self, $days) = @_;
+
+    return $self->surface->{$days}->{smile} // {};
 }
 
 no Moose;

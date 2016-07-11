@@ -73,13 +73,13 @@ subtest 'get_smile' => sub {
     my $from    = $surface->recorded_date;
     my $to      = $from->plus_time_interval('1d');
 
-    my $smile = $surface->calculate_smile($from, $to);
+    my $smile = $surface->get_smile($from, $to);
     is $smile->{25}, 0.158943882847805,  'volatility for 25D';
     is $smile->{50}, 0.0794719414239026, 'volatility for 50D';
     is $smile->{75}, 0.238415824271708,  'volatility for 75D';
 
     my $later_date = $from->plus_time_interval('3d');
-    my $smile3 = $surface->calculate_smile($from, $later_date);
+    my $smile3 = $surface->get_smile($from, $later_date);
     cmp_ok $smile3->{25}, '!=', $smile->{25}, 'volatility for 25D is different when both dates of the requested date is on different period';
     cmp_ok $smile3->{50}, '!=', $smile->{50}, 'volatility for 50D is different when both dates of the requested date is on different period';
     cmp_ok $smile3->{75}, '!=', $smile->{75}, 'volatility for 75D is different when both dates of the requested date is on different period';
@@ -435,70 +435,6 @@ subtest 'save surface to chronicle' => sub {
 };
 
 # PRIVATE METHODS
-
-subtest _days_with_smiles => sub {
-    plan tests => 4;
-    my $surface = _get_surface();
-
-    my @days;
-    lives_ok {
-        @days = sort { $a <=> $b } @{$surface->_days_with_smiles()};
-    }
-    'can call _get_days_with_smile';
-    foreach my $day (@days) {
-        ok(exists $surface->surface->{$day}->{smile}, "smile for $day exists");
-    }
-};
-
-subtest _convert_expiry_to_day => sub {
-    plan tests => 3;
-    my $surface = _get_surface();
-    lives_ok { $surface->_convert_expiry_to_day({expiry_date => Date::Utility->new()}) } 'can convert for expiry_date';
-    lives_ok { $surface->_convert_expiry_to_day({tenor       => '1W'}) } 'can convert for tenor';
-    lives_ok { $surface->_convert_expiry_to_day({days        => 1}) } 'can convert for days';
-};
-
-subtest _validate_sought_points => sub {
-    plan tests => 6;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            surface           => {
-                7 => {
-                    atm_spread => 0.01,
-                },
-            },
-            recorded_date    => Date::Utility->new,
-            chronicle_reader => $chronicle_r,
-            chronicle_writer => $chronicle_w,
-            save             => 0,
-        });
-
-    throws_ok {
-        $surface->_validate_sought_values(undef, undef);
-    }
-    qr/Days\S+ or sought_point\S+ is undefined/, 'undefined day.';
-    throws_ok {
-        $surface->_validate_sought_values(7, undef);
-    }
-    qr/Days\S+ or sought_point\S+ is undefined/, 'undefined sought_point.';
-    throws_ok {
-        $surface->_validate_sought_values(7, 'chicken');
-    }
-    qr/must be a number/, 'sought_point is not a number.';
-    throws_ok {
-        $surface->_validate_sought_values(0, 7);
-    }
-    qr/requires positive numeric days\S+ and sought_point/, 'day is zero.';
-    throws_ok {
-        $surface->_validate_sought_values(7, -1);
-    }
-    qr/requires positive numeric days\S+ and sought_point/, 'sought_point is negative.';
-    cmp_ok(scalar @{$surface->smile_points}, '==', 0, 'Surface with no smiles (very sad).');
-};
 
 subtest '_get_points_to_interpolate' => sub {
     plan tests => 15;
