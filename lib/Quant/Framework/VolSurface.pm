@@ -121,15 +121,8 @@ has recorded_date => (
 
 sub _build_recorded_date {
     my $self          = shift;
-    my $recorded_date = Date::Utility->new($self->document->{date});
 
-    #for a flat volatility surface, we assume it is always fresh with date equal to now or the date for which
-    #we want to fetch the surface (because it never changes)
-    if ($self->type eq 'flat') {
-        $recorded_date = $self->for_date // Date::Utility->new;
-    }
-
-    return $recorded_date;
+    return Date::Utility->new($self->document->{date});
 }
 
 =head2 type
