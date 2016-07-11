@@ -178,7 +178,7 @@ sub get_volatility {
 
     die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
-    $args->{days} = $self->underlying_config->default_volatility_duration // (($args->{to}->epoch - $args->{from}->epoch) / 86400);
+    $args->{days} = ($args->{to}->epoch - $args->{from}->epoch) / 86400;
 
     my $vol;
     if ($args->{delta}) {

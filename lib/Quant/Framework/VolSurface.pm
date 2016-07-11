@@ -648,19 +648,6 @@ sub get_volatility {
     return $vol;
 }
 
-sub _convert_expiry_to_day {
-    my ($self, $args) = @_;
-
-    return $args->{days} if $args->{days};
-    my $days =
-          $args->{expiry_date}
-        ? $self->_get_days_for_expiry_date($args->{expiry_date})
-        : $self->get_day_for_tenor($args->{tenor});
-    delete $args->{expiry_date};
-    delete $args->{tenor};
-    return $days;
-}
-
 sub _validate_sought_values {
     my ($self, $day, $sought_point) = @_;
 
