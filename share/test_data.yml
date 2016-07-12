@@ -71,15 +71,6 @@ index:
       180: 2.11
       365: 1.04
 
-holiday:
-  class_name: 'Quant::Framework::Holiday'
-  data:
-    calendar:
-        1420070400:
-          'New Year':
-            - EURONEXT
-            - USD
-
 economic_events:
   class_name: 'Quant::Framework::EconomicEventCalendar'
   data:
@@ -149,42 +140,42 @@ volsurface_delta:
           25: 0.17
           50: 0.16
           75: 0.22
-        vol_spread: 
+        vol_spread:
           50: 0.01
       14:
         smile:
           25: 0.17
           50: 0.152
           75: 0.18
-        vol_spread: 
+        vol_spread:
           50:  0.01
       30:
         smile:
           25: 0.173
           50: 0.15
           75: 0.18
-        vol_spread: 
+        vol_spread:
           50:  0.01
       60:
         smile:
           25: 0.183
           50: 0.158
           75: 0.213
-        vol_spread: 
+        vol_spread:
           50:  0.01
       91:
         smile:
           25: 0.189
           50: 0.167
           75: 0.215
-        vol_spread: 
+        vol_spread:
           50:  0.01
       182:
         smile:
           25: 0.202
           50: 0.183
           75: 0.217
-        vol_spread: 
+        vol_spread:
           50:  0.01
 
 volsurface_moneyness:
@@ -213,7 +204,7 @@ volsurface_moneyness:
           200: 0.4394
           250: 0.4518
           300: 0.4642
-        vol_spread: 
+        vol_spread:
           100:  0.012
       30:
         smile:
@@ -235,7 +226,7 @@ volsurface_moneyness:
           200: 0.3092
           250: 0.3273
           300: 0.3454
-        vol_spread: 
+        vol_spread:
           100:  0.005
       61:
         smile:
@@ -257,7 +248,7 @@ volsurface_moneyness:
           200: 0.3311
           250: 0.3613
           300: 0.3778
-        vol_spread: 
+        vol_spread:
           100:  0.0048
       92:
         smile:
@@ -279,7 +270,7 @@ volsurface_moneyness:
           200: 0.2918
           250: 0.3251
           300: 0.3454
-        vol_spread: 
+        vol_spread:
           100:  0.005
       184:
         smile:
@@ -301,7 +292,7 @@ volsurface_moneyness:
           200: 0.214
           250: 0.2443
           300: 0.2635
-        vol_spread: 
+        vol_spread:
           100:  0.004
       275:
         smile:
@@ -323,7 +314,7 @@ volsurface_moneyness:
           200: 0.2035
           250: 0.2297
           300: 0.2558
-        vol_spread: 
+        vol_spread:
           100:  0.004
       365:
         smile:
@@ -345,6 +336,6 @@ volsurface_moneyness:
           200: 0.2052
           250: 0.2327
           300: 0.2511
-        vol_spread: 
+        vol_spread:
           100:  0.0052
 

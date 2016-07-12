@@ -10,26 +10,29 @@ use Quant::Framework::TradingCalendar;
 use Date::Utility;
 use Quant::Framework::Utils::Builder;
 use Quant::Framework::Utils::Test;
+use Quant::Framework::StorageAccessor;
+use Quant::Framework::Holiday;
 
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
+my $storage_accessor = Quant::Framework::StorageAccessor->new(
+    chronicle_reader => $chronicle_r,
+    chronicle_writer => $chronicle_w,
+);
 
 my $date = Date::Utility->new('2013-12-01');
 note("Exchange tests for_date " . $date->date);
-Quant::Framework::Utils::Test::create_doc(
-    'holiday',
-    {
-        recorded_date => $date,
-        calendar      => {
+Quant::Framework::Holiday->create(
+      storage_accessor => $storage_accessor,
+      for_date         => $date,
+    )->update({
             "25-Dec-2013" => {
                 "Christmas Day" => [qw(FOREX METAL)],
             },
             "29-Mar-2013" => {
                 "Good Friday" => ['USD'],
             },
-        },
-        chronicle_reader => $chronicle_r,
-        chronicle_writer => $chronicle_w,
-    });
+    }, $date)
+    ->save;
 
 subtest 'weight on' => sub {
     my $chritmas      = Date::Utility->new('2013-12-25');
