@@ -105,11 +105,11 @@ subtest "convert moneyness to delta" => sub {
         chronicle_writer  => $chronicle_w,
     );
 
-    lives_ok { $v->_convert_moneyness_smile_to_delta($v->recorded_date, $v->effective_date->plus_time_interval('7d')) } "can convert moneyness smile to delta smile";
-    throws_ok { $v->_convert_moneyness_smile_to_delta('asd') } qr/dates are undefined/,
+    lives_ok { $v->_convert_moneyness_smile_to_delta(7) } "can convert moneyness smile to delta smile";
+    throws_ok { $v->_convert_moneyness_smile_to_delta('asd') } qr/must be a number/,
         "from and to dates must be defined";
 
-    my $deltas = $v->_convert_moneyness_smile_to_delta($v->recorded_date, $v->effective_date->plus_time_interval('7d'));
+    my $deltas = $v->_convert_moneyness_smile_to_delta(7);
 
     my $BOM_25 = $v->get_volatility({
         delta => 25,
