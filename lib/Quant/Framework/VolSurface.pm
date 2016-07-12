@@ -353,62 +353,12 @@ around BUILDARGS => sub {
     }
 
     if ($args{surface} or $args{recorded_date}) {
-
         if (not $args{surface} or not $args{recorded_date}) {
             die('Must pass both "surface" and "recorded_date" if passing either.');
         }
-
         $args{_new_surface} = 1;
-        my $builder = Quant::Framework::Utils::Builder->new({
-            for_date          => $args{for_date},
-            chronicle_reader  => $args{chronicle_reader},
-            chronicle_writer  => $args{chronicle_writer},
-            underlying_config => $args{underlying_config},
-        });
-
-        my $expiry_conventions = $builder->build_expiry_conventions;
-
-        # If the smile's day is given as a tenor, we convert
-        # it to a day and add the tenor to the smile:
-        foreach my $maturity (keys %{$args{surface}}) {
-            my $effective_date;
-
-            if (_is_tenor($maturity)) {
-                $effective_date ||= Quant::Framework::VolSurface::Utils->new->effective_date_for($args{recorded_date});
-
-                my $vol_expiry_date = $expiry_conventions->vol_expiry_date({
-                    from => $effective_date,
-                    term => $maturity
-                });
-                my $day = $vol_expiry_date->days_between($effective_date);
-
-                $args{surface}->{$day} = $args{surface}->{$maturity};
-                $args{surface}->{$day}->{tenor} = $maturity;
-                delete $args{surface}->{$maturity};
-
-                $day_for_tenor{$maturity} = $day;
-            }
-        }
     }
 
-    if (ref $args{original_term}) {
-        if (
-            not exists $args{original_term}->{smile}
-            and (
-                not(   exists $args{original_term}->{vol_spread}
-                    or exists $args{original_term}->{atm_spread})))
-        {
-
-            die('Given original_term attr must have both smile and vol_spread keys present.');
-        }
-        foreach my $which (qw( smile vol_spread )) {
-            if (exists $args{original_term}->{$which}) {
-                $args{original_term}->{$which} = [
-                    sort { $a <=> $b }
-                    map { _is_tenor($_) ? $day_for_tenor{$_} : $_ } @{$args{original_term}->{$which}}];
-            }
-        }
-    }
     return $class->$orig(%args);
 };
 
