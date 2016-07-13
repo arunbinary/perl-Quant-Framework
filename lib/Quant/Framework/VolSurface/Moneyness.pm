@@ -19,21 +19,6 @@ use Scalar::Util qw( looks_like_number );
 use Math::Function::Interpolator;
 use List::MoreUtils qw(indexes);
 use List::Util qw(min max);
-use Storable qw( dclone );
-
-sub _document_content {
-    my $self = shift;
-
-    my %structure = (
-        surface        => $self->surface,
-        date           => $self->recorded_date->datetime_iso8601,
-        symbol         => $self->symbol,
-        type           => $self->type,
-        spot_reference => $self->spot_reference,
-    );
-
-    return \%structure;
-}
 
 =head2 effective_date
 
@@ -390,44 +375,6 @@ sub _convert_moneyness_smile_to_delta {
     }
 
     return \%deltas,;
-}
-
-=head2 clone
-
-USAGE:
-
-  my $clone = $s->clone({
-    surface => $my_new_surface,
-  });
-
-Returns a new Quant::Framework::VolSurface instance. You can pass overrides to override an attribute value as it is on the original surface.
-
-=cut
-
-sub clone {
-    my ($self, $args) = @_;
-
-    my %clone_args;
-    %clone_args = %$args if $args;
-
-    $clone_args{spot_reference} = $self->spot_reference
-        if (not exists $clone_args{spot_reference});
-    $clone_args{underlying_config} = $self->underlying_config
-        if (not exists $clone_args{underlying_config});
-
-    if (not exists $clone_args{surface}) {
-        my $orig_surface = dclone($self->surface);
-        my %surface_to_clone = map { $_ => $orig_surface->{$_} } @{$self->original_term_for_smile};
-        $clone_args{surface} = \%surface_to_clone;
-    }
-
-    $clone_args{recorded_date} = $self->recorded_date
-        if (not exists $clone_args{recorded_date});
-
-    $clone_args{chronicle_reader} = $self->chronicle_reader;
-    $clone_args{chronicle_writer} = $self->chronicle_writer;
-
-    return $self->meta->name->new(\%clone_args);
 }
 
 no Moose;

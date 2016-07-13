@@ -23,20 +23,6 @@ use List::Util qw(min);
 use Date::Utility;
 use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness );
 use Math::Function::Interpolator;
-use Storable qw( dclone );
-
-sub _document_content {
-    my $self = shift;
-
-    my %structure = (
-        surface => $self->surface,
-        date    => $self->recorded_date->datetime_iso8601,
-        symbol  => $self->symbol,
-        type    => $self->type,
-    );
-
-    return \%structure;
-}
 
 =head1 ATTRIBUTES
 
@@ -272,7 +258,7 @@ sub get_weight {
         }
     }
 
-    my $calendar     = $self->builder->build_trading_calendar;
+    my $calendar     = $self->calendar;
     my $total_weight = 0;
     for (my $i = 0; $i < $#dates; $i++) {
         my $dt = $dates[$i + 1] - $dates[$i];
@@ -293,40 +279,6 @@ sub interpolate {
     my ($self, $args) = @_;
 
     return Math::Function::Interpolator->new(points => $args->{smile})->quadratic($args->{sought_point});
-}
-
-=head2 clone
-
-USAGE:
-
-  my $clone = $s->clone({
-    surface => $my_new_surface,
-  });
-
-Returns a new cloned instance.
-You can pass overrides to override an attribute value as it is on the original surface.
-
-=cut
-
-sub clone {
-    my ($self, $args) = @_;
-
-    my $clone_args;
-    $clone_args = dclone($args) if $args;
-
-    $clone_args->{underlying_config} = $self->underlying_config if (not exists $clone_args->{underlying_config});
-
-    if (not exists $clone_args->{surface}) {
-        my $orig_surface = dclone($self->surface);
-        my %surface_to_clone = map { $_ => $orig_surface->{$_} } @{$self->original_term_for_smile};
-        $clone_args->{surface} = \%surface_to_clone;
-    }
-
-    $clone_args->{recorded_date}    = $self->recorded_date if (not exists $clone_args->{recorded_date});
-    $clone_args->{chronicle_reader} = $self->chronicle_reader;
-    $clone_args->{chronicle_writer} = $self->chronicle_writer;
-
-    return $self->meta->name->new($clone_args);
 }
 
 # PRIVATE #

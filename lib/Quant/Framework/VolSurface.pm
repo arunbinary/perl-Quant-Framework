@@ -755,6 +755,42 @@ sub get_surface_smile {
     return $self->surface->{$days}->{smile} // {};
 }
 
+=head2 clone
+
+USAGE:
+
+  my $clone = $s->clone({
+    surface_data => $surface_data,
+  });
+
+Returns a new Quant::Framework::VolSurface instance. You can pass overrides to override an attribute value as it is on the original surface.
+
+=cut
+
+sub clone {
+    my ($self, $args) = @_;
+
+    my %clone_args;
+    %clone_args = %$args if $args;
+
+    # moneyness has spot_reference.
+    if ($self->can('spot_reference') and not exists $clone_args{spot_reference}) {
+        $clone_args{spot_reference} = $self->spot_reference;
+    }
+
+    foreach my $att (qw(underlying_config recorded_date chronicle_reader chronicle_writer)) {
+        if (not exists $clone_args{$att}) {
+            $clone_args{$att} = $self->$att;
+        }
+    }
+
+    if (not exists $clone_args{surface_data}) {
+        $clone_args{surface_data} = dclone($self->surface_data);
+    }
+
+    return $self->meta->name->new(\%clone_args);
+}
+
 sub _clean {
     my ($self, $surface) = @_;
 
@@ -768,6 +804,21 @@ sub _clean {
     }
 
     return $surface;
+}
+
+sub _document_content {
+    my $self = shift;
+
+    my %structure = (
+        surface => $self->surface,
+        date    => $self->recorded_date->datetime_iso8601,
+        symbol  => $self->symbol,
+        type    => $self->type,
+    );
+
+    $structure{spot_reference} = $self->spot_reference if ($self->can('spot_reference'));
+
+    return \%structure;
 }
 
 no Moose;
