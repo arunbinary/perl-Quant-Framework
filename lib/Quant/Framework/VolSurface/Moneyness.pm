@@ -298,14 +298,14 @@ sub interpolate {
     return Math::Function::Interpolator->new(points => $args->{smile})->$method($args->{sought_point});
 }
 
-# rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
-override get_market_rr_bf => sub {
+sub get_market_rr_bf {
     my ($self, $day) = @_;
 
+# rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
     my %smile = map { $_ => $self->_calculate_vol_for_delta({delta => $_, days => $day}) } qw(25 50 75);
 
     return $self->get_rr_bf_for_smile(\%smile);
-};
+}
 
 ## PRIVATE ##
 

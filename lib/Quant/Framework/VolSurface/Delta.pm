@@ -281,6 +281,20 @@ sub interpolate {
     return Math::Function::Interpolator->new(points => $args->{smile})->quadratic($args->{sought_point});
 }
 
+=head2 get_market_rr_bf
+
+Returns the rr and bf values for a given day
+
+=cut
+
+sub get_market_rr_bf {
+    my ($self, $from, $to) = @_;
+
+    my %smile = %{$self->get_smile($from, $to)};
+
+    return $self->get_rr_bf_for_smile(\%smile);
+}
+
 # PRIVATE #
 
 sub _convert_moneyness_to_delta {
