@@ -114,7 +114,7 @@ has effective_date => (
 sub _build_effective_date {
     my $self = shift;
 
-    return $self->_vol_utils->effective_date_for($self->recorded_date);
+    return Quant::Framework::VolSurface::Utils->new->effective_date_for($self->recorded_date);
 }
 
 =head2 surface_data

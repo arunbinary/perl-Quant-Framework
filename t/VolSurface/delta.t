@@ -270,7 +270,7 @@ subtest 'object creaion error check' => sub {
                 chronicle_writer => $chronicle_w,
             })
     }
-    qr/Attribute underlying_config is required/, 'Cannot create volsurface without underlying_config';
+    qr/Attribute \(underlying_config\) is required/, 'Cannot create volsurface without underlying_config';
     throws_ok {
         Quant::Framework::VolSurface::Delta->new({
                 surface           => $surface,

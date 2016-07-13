@@ -13,9 +13,8 @@ Base class for all volatility surfaces.
 use Moose;
 use Try::Tiny;
 use DateTime::TimeZone;
-use List::MoreUtils qw(notall none all);
-use Scalar::Util qw( looks_like_number weaken );
-use Scalar::Util::Numeric qw( isnum );
+use List::MoreUtils qw(notall);
+use Scalar::Util qw( looks_like_number );
 use List::Util qw( min max first );
 use Number::Closest::XS qw(find_closest_numbers_around);
 use Math::Function::Interpolator;
@@ -47,6 +46,26 @@ has chronicle_writer => (
     is  => 'ro',
     isa => 'Data::Chronicle::Writer',
 );
+
+=head2 type
+
+Type of the surface, delta, moneyness or flat.
+
+=cut
+
+has type => (
+    is       => 'ro',
+    isa      => 'qf_surface_type',
+    required => 1,
+    init_arg => undef,
+    default  => undef,
+);
+
+=head2 underlying_config
+
+Contains underlying specific information
+
+=cut
 
 has underlying_config => (
     is       => 'ro',
@@ -139,10 +158,15 @@ The symbol of the underlying that this surface is for (e.g. frxUSDJPY)
 =cut
 
 has symbol => (
-    is       => 'ro',
-    isa      => 'Str',
-    required => 1,
+    is         => 'ro',
+    lazy_build => 1,
 );
+
+sub _build_symbol {
+    my $self = shift;
+
+    return $self->underlying_config->system_symbol;
+}
 
 =head2 recorded_date
 
@@ -161,20 +185,6 @@ sub _build_recorded_date {
 
     return Date::Utility->new($self->document->{date});
 }
-
-=head2 type
-
-Type of the surface, delta, moneyness or flat.
-
-=cut
-
-has type => (
-    is       => 'ro',
-    isa      => 'qf_surface_type',
-    required => 1,
-    init_arg => undef,
-    default  => undef,
-);
 
 =head2 smile_points
 
@@ -325,28 +335,7 @@ sub _build_original_term_for_spread {
 
 # PRIVATE ATTRIBUTES:
 
-has _vol_utils => (
-    is         => 'ro',
-    isa        => 'Quant::Framework::VolSurface::Utils',
-    init_arg   => undef,
-    lazy_build => 1,
-);
-
-sub _build__vol_utils {
-    return Quant::Framework::VolSurface::Utils->new;
-}
-
-has _vol_surface_validator => (
-    is         => 'ro',
-    isa        => 'Quant::Framework::VolSurface::Validator',
-    init_arg   => undef,
-    lazy_build => 1,
-);
-
-sub _build__vol_surface_validator {
-    return Quant::Framework::VolSurface::Validator->new;
-}
-
+# will probably remove this in the future. I don't see a difference between this and expiry convention.
 has _ON_day => (
     is         => 'ro',
     isa        => 'Int',
@@ -365,22 +354,9 @@ around BUILDARGS => sub {
     my $orig  = shift;
     my $class = shift;
     my %args  = (ref $_[0] eq 'HASH') ? %{$_[0]} : @_;
-    my %day_for_tenor;
-
-    die "Chronicle reader is required to create a vol-surface" if not defined $args{chronicle_reader};
-    die "Attribute underlying_config is required"              if not defined $args{underlying_config};
-
-    my $underlying_config = $args{underlying_config};
-    if (ref $underlying_config
-        and $underlying_config->isa('Quant::Framework::Utils::UnderlyingConfig'))
-    {
-        $args{symbol} = $underlying_config->system_symbol;
-    }
 
     if ($args{surface} or $args{recorded_date}) {
-        if (not $args{surface} or not $args{recorded_date}) {
-            die('Must pass both "surface" and "recorded_date" if passing either.');
-        }
+        die('Must pass both "surface" and "recorded_date" if passing either.') if (not($args{surface} and $args{recorded_date}));
         $args{surface_data} = delete $args{surface};
     }
 
@@ -567,7 +543,7 @@ sub set_smile {
     my $vol_spread = $self->get_smile_spread($day);
 
     # throws exception on error.
-    $self->_vol_surface_validator->check_smile($day, $smile, $self->symbol);
+    Quant::Framework::VolSurface::Validator->new->check_smile($day, $smile, $self->symbol);
 
     $surface->{$day} = {
         smile      => $smile,
@@ -599,6 +575,7 @@ sub get_rr_bf_for_smile {
         $result->{RR_10} = $market_smile->{10} - $market_smile->{90};
         $result->{BF_10} = ($market_smile->{10} + $market_smile->{90}) / 2 - $market_smile->{50};
     }
+
     return $result;
 }
 
