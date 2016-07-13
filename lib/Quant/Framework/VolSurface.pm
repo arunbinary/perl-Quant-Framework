@@ -271,8 +271,8 @@ sub _build_original_term {
     my $self = shift;
 
     # this is from original surface data.
-    my $surface     = $self->surface_data;
-    my @days        = map { /^(?:ON|\d{1,2}[WMY])$/ ? $self->get_day_for_tenor($_) : $_ } keys %$surface;
+    my $surface     = $self->surface;
+    my @days        = map { /^(?:ON|\d{1,2}[WMY])$/ ? $self->get_day_for_tenor($_) : $_ } keys %{$self->surface_data};
     my @vol_spreads = grep { exists $surface->{$_}{vol_spread} } @days;
     my @smiles      = grep { exists $surface->{$_}{smile} } @days;
 

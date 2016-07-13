@@ -475,14 +475,6 @@ subtest _is_between => sub {
     ok(!$surface->_is_between(4, [1, 2]), 'returns false if seek if not in between available points');
 };
 
-subtest _is_tenor => sub {
-    plan tests => 3;
-
-    lives_ok { Quant::Framework::VolSurface::_is_tenor('1W') } 'can call _is_tenor';
-    ok(!Quant::Framework::VolSurface::_is_tenor(3),   'returns false if not tenor');
-    ok(Quant::Framework::VolSurface::_is_tenor('2M'), 'returns true if tenor');
-};
-
 subtest fetch_historical_surface_date => sub {
     plan tests => 3;
 
