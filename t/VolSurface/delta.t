@@ -279,7 +279,7 @@ subtest 'object creaion error check' => sub {
                 chronicle_writer  => $chronicle_w,
             })
     }
-    qr/Must pass both "surface" and "recorded_date" if passing either/, 'Cannot create volsurface without recorded_date';
+    qr/Must pass both "surface_data" and "recorded_date" if passing either/, 'Cannot create volsurface without recorded_date';
     lives_ok {
         Quant::Framework::VolSurface::Delta->new({
                 surface           => $surface,

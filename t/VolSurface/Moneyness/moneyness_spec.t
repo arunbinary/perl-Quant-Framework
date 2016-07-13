@@ -65,7 +65,7 @@ subtest creates_moneyness_object => sub {
             recorded_date     => '12-Sep-12'
         );
     }
-    qr/Must pass both "surface" and "recorded_date" if passing either/, 'throws exception if only pass in recorded_date';
+    qr/Must pass both "surface_data" and "recorded_date" if passing either/, 'throws exception if only pass in recorded_date';
 
     throws_ok {
         Quant::Framework::VolSurface::Moneyness->new(
@@ -74,7 +74,7 @@ subtest creates_moneyness_object => sub {
             chronicle_writer  => $chronicle_w,
             surface           => {});
     }
-    qr/Must pass both "surface" and "recorded_date" if passing either/, 'throws exception if only pass in surface';
+    qr/Must pass both "surface_data" and "recorded_date" if passing either/, 'throws exception if only pass in surface';
 };
 
 subtest fetching_volsurface_data_from_db => sub {

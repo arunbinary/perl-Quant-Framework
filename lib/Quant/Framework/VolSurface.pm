@@ -355,9 +355,9 @@ around BUILDARGS => sub {
     my $class = shift;
     my %args  = (ref $_[0] eq 'HASH') ? %{$_[0]} : @_;
 
-    if ($args{surface} or $args{recorded_date}) {
-        die('Must pass both "surface" and "recorded_date" if passing either.') if (not($args{surface} and $args{recorded_date}));
-        $args{surface_data} = delete $args{surface};
+    if ($args{surface} or $args{recorded_date} or $args{surface_data}) {
+        $args{surface_data} = delete $args{surface} if $args{surface} and not $args{surface_data};
+        die('Must pass both "surface_data" and "recorded_date" if passing either.') if (not($args{surface_data} and $args{recorded_date}));
     }
 
     return $class->$orig(%args);
