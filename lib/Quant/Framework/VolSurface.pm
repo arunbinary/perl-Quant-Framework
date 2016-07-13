@@ -19,6 +19,7 @@ use Scalar::Util::Numeric qw( isnum );
 use List::Util qw( min max first );
 use Number::Closest::XS qw(find_closest_numbers_around);
 use Math::Function::Interpolator;
+use Storable qw( dclone );
 
 use Quant::Framework::Utils::Types;
 use Quant::Framework::VolSurface::Validator;
@@ -91,6 +92,42 @@ sub _build_builder {
         chronicle_writer  => $self->chronicle_writer,
         underlying_config => $self->underlying_config,
     });
+}
+
+=head2 surface
+
+Volatility surface in a hash reference.
+
+=cut
+
+has surface => (
+    is         => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_surface {
+    my $self = shift;
+
+    my $surface_data       = dclone($self->surface_data);
+    my $expiry_conventions = $self->builder->build_expiry_conventions;
+    my $effective_date     = $self->effective_date;
+
+    # If the smile's day is given as a tenor, we convert
+    # it to a day and add the tenor to the smile:
+    foreach my $maturity (keys %$surface_data) {
+        if ($maturity =~ /^(?:ON|\d{1,2}[WMY])$/) {
+            my $vol_expiry_date = $expiry_conventions->vol_expiry_date({
+                from => $effective_date,
+                term => $maturity
+            });
+            my $day = $vol_expiry_date->days_between($effective_date);
+
+            $surface_data->{$day} = delete $surface_data->{$maturity};
+            $surface_data->{$day}{tenor} = $maturity;
+        }
+    }
+
+    return $surface_data;
 }
 
 =head1 ATTRIBUTES
@@ -353,42 +390,11 @@ around BUILDARGS => sub {
     }
 
     if ($args{surface} or $args{recorded_date}) {
-
         if (not $args{surface} or not $args{recorded_date}) {
             die('Must pass both "surface" and "recorded_date" if passing either.');
         }
-
+        $args{surface_data} = delete $args{surface};
         $args{_new_surface} = 1;
-        my $builder = Quant::Framework::Utils::Builder->new({
-            for_date          => $args{for_date},
-            chronicle_reader  => $args{chronicle_reader},
-            chronicle_writer  => $args{chronicle_writer},
-            underlying_config => $args{underlying_config},
-        });
-
-        my $expiry_conventions = $builder->build_expiry_conventions;
-
-        # If the smile's day is given as a tenor, we convert
-        # it to a day and add the tenor to the smile:
-        foreach my $maturity (keys %{$args{surface}}) {
-            my $effective_date;
-
-            if (_is_tenor($maturity)) {
-                $effective_date ||= Quant::Framework::VolSurface::Utils->new->effective_date_for($args{recorded_date});
-
-                my $vol_expiry_date = $expiry_conventions->vol_expiry_date({
-                    from => $effective_date,
-                    term => $maturity
-                });
-                my $day = $vol_expiry_date->days_between($effective_date);
-
-                $args{surface}->{$day} = $args{surface}->{$maturity};
-                $args{surface}->{$day}->{tenor} = $maturity;
-                delete $args{surface}->{$maturity};
-
-                $day_for_tenor{$maturity} = $day;
-            }
-        }
     }
 
     if (ref $args{original_term}) {
@@ -830,6 +836,21 @@ sub get_surface_smile {
     my ($self, $days) = @_;
 
     return $self->surface->{$days}->{smile} // {};
+}
+
+sub _clean {
+    my ($self, $surface) = @_;
+
+    # For backward compatibility in volatility spread,
+    # we will convert the legacy structure to the new structure here.
+    foreach my $tenor (keys %$surface) {
+        if (exists $surface->{$tenor}{atm_spread}) {
+            my $spread = delete $surface->{$tenor}{atm_spread};
+            $surface->{$tenor}{vol_spread} = {$self->atm_spread_point => $spread};
+        }
+    }
+
+    return $surface;
 }
 
 no Moose;

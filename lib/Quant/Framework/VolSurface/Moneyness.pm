@@ -52,34 +52,25 @@ sub _build_effective_date {
     return $self->recorded_date;
 }
 
-=head2 surface
+=head2 surface_data
 
-Volatility surface in a hash reference.
+The original surface data.
 
 =cut
 
-has surface => (
+has surface_data => (
     is         => 'ro',
-    isa        => 'HashRef',
     lazy_build => 1,
 );
 
-sub _build_surface {
+sub _build_surface_data {
     my $self = shift;
 
+    # For backward compatibility
     my $date = $self->for_date // Date::Utility->new;
     my $surface = $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm} // {};
 
-    # For backward compatibility in volatility spread,
-    # we will convert the legacy structure to the new structure here.
-    foreach my $tenor (keys %$surface) {
-        if (exists $surface->{$tenor}{atm_spread}) {
-            my $spread = delete $surface->{$tenor}{atm_spread};
-            $surface->{$tenor}{vol_spread} = {$self->atm_spread_point => $spread};
-        }
-    }
-
-    return $surface;
+    return $self->_clean($surface);
 }
 
 has variance_table => (
