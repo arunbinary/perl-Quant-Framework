@@ -322,8 +322,7 @@ sub clone {
         $clone_args->{surface} = \%surface_to_clone;
     }
 
-    $clone_args->{recorded_date} = $self->recorded_date         if (not exists $clone_args->{recorded_date});
-    $clone_args->{original_term} = dclone($self->original_term) if (not exists $clone_args->{original_term});
+    $clone_args->{recorded_date}    = $self->recorded_date if (not exists $clone_args->{recorded_date});
     $clone_args->{chronicle_reader} = $self->chronicle_reader;
     $clone_args->{chronicle_writer} = $self->chronicle_writer;
 

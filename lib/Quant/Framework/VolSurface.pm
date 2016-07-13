@@ -270,8 +270,9 @@ has original_term => (
 sub _build_original_term {
     my $self = shift;
 
-    my $surface     = $self->surface;
-    my @days        = @{$self->term_by_day};
+    # this is from original surface data.
+    my $surface     = $self->surface_data;
+    my @days        = map { /^(?:ON|\d{1,2}[WMY])$/ ? $self->get_day_for_tenor($_) : $_ } keys %$surface;
     my @vol_spreads = grep { exists $surface->{$_}{vol_spread} } @days;
     my @smiles      = grep { exists $surface->{$_}{smile} } @days;
 
@@ -397,32 +398,8 @@ around BUILDARGS => sub {
         $args{_new_surface} = 1;
     }
 
-    if (ref $args{original_term}) {
-        if (
-            not exists $args{original_term}->{smile}
-            and (
-                not(   exists $args{original_term}->{vol_spread}
-                    or exists $args{original_term}->{atm_spread})))
-        {
-
-            die('Given original_term attr must have both smile and vol_spread keys present.');
-        }
-        foreach my $which (qw( smile vol_spread )) {
-            if (exists $args{original_term}->{$which}) {
-                $args{original_term}->{$which} = [
-                    sort { $a <=> $b }
-                    map { _is_tenor($_) ? $day_for_tenor{$_} : $_ } @{$args{original_term}->{$which}}];
-            }
-        }
-    }
     return $class->$orig(%args);
 };
-
-sub _is_tenor {
-    my $day = shift;
-
-    return ($day =~ /^(?:ON|\d{1,2}[WMY])$/) ? 1 : 0;
-}
 
 =head2 get_spread
 
