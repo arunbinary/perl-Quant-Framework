@@ -48,14 +48,14 @@ subtest creates_moneyness_object => sub {
     }
     'creates moneyness surface with symbol hash';
 
-    throws_ok {
+    lives_ok {
         Quant::Framework::VolSurface::Moneyness->new({
                 underlying_config => 'IBEX35',
                 chronicle_reader  => $chronicle_r,
                 chronicle_writer  => $chronicle_w,
             })
     }
-    qr/Attribute \(symbol\) is required/, 'throws exception if underlying is not UnderlyingConfig';
+    'symbol is not required';
 
     throws_ok {
         Quant::Framework::VolSurface::Moneyness->new(

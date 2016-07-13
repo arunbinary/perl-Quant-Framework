@@ -182,7 +182,6 @@ volsurface_moneyness:
   class_name: 'Quant::Framework::VolSurface::Moneyness'
   data:
     spot_reference: 7150
-    symbol: GDAXI
     surface:
       7:
         smile:
