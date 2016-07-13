@@ -59,7 +59,7 @@ subtest clone => sub {
 
     lives_ok { $volsurface->clone } 'Can clone Quant::Framework::VolSurface::Moneyness';
     my $clone;
-    lives_ok { $clone = $volsurface->clone({surface => {ON => {smile => {100 => 0.5}}}}) };
+    lives_ok { $clone = $volsurface->clone({surface_data => {ON => {smile => {100 => 0.5}}}}) };
     isa_ok($clone, 'Quant::Framework::VolSurface::Moneyness');
     is($clone->surface->{1}->{smile}->{100}, 0.5, 'can change attribute value when clone');
 
@@ -110,6 +110,20 @@ subtest 'get surface spot reference' => sub {
     lives_ok { $spot = $volsurface->spot_reference } 'can call spot reference of the surface';
     is($spot, 100, 'Got what I put in');
     ok(looks_like_number($spot), 'spot is a number');
+};
+
+subtest 'get_market_rr_bf' => {
+    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
+        underlying_config => $underlying_config,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+    );
+    lives_ok {
+        my $rr_bf = $volsurface->get_market_rr_bf(7);
+        ok exists $rr_bf->{ATM}, 'ATM exists';
+        ok exists $rr_bf->{RR_25}, 'RR_25 exists';
+        ok exists $rr_bf->{BF_25}, 'BF_25 exists';
+    } 'get_market_rr_bf';
 };
 
 done_testing;
