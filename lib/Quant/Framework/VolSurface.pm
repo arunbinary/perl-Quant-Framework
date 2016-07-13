@@ -198,15 +198,10 @@ sub _build_smile_points {
     # has the same points, this works. If each smile has different
     # points, the Validator is going to give you trouble!
     my $surface = $self->surface;
-
     my $suitable_day = first { exists $surface->{$_}->{smile} } @{$self->term_by_day};
-    my @smile_points = ();
-    if ($suitable_day) {
-        @smile_points =
-            sort { $a <=> $b } keys %{$surface->{$suitable_day}->{smile}};
-    }
 
-    return \@smile_points;
+    return [sort { $a <=> $b } keys %{$surface->{$suitable_day}->{smile}}] if $suitable_day;
+    return [];
 }
 
 =head2 spread_points
@@ -250,9 +245,7 @@ has term_by_day => (
 sub _build_term_by_day {
     my $self = shift;
 
-    my @days = sort { $a <=> $b } keys %{$self->surface};
-
-    return \@days;
+    return [sort { $a <=> $b } keys %{$self->surface}];
 }
 
 =head2 original_term
@@ -332,12 +325,6 @@ sub _build_original_term_for_spread {
 
 # PRIVATE ATTRIBUTES:
 
-#A flag which determines whether this surface is a newly created surface or a one which is read from historical data.
-has _new_surface => (
-    is      => 'ro',
-    default => 0,
-);
-
 has _vol_utils => (
     is         => 'ro',
     isa        => 'Quant::Framework::VolSurface::Utils',
@@ -395,7 +382,6 @@ around BUILDARGS => sub {
             die('Must pass both "surface" and "recorded_date" if passing either.');
         }
         $args{surface_data} = delete $args{surface};
-        $args{_new_surface} = 1;
     }
 
     return $class->$orig(%args);
@@ -739,10 +725,6 @@ Validates this volatility surface and returns possible errors (or empty if surfa
 sub is_valid {
     my $self = shift;
 
-    # An old/saved surface is always valid.
-    # It has to be validated before it gets saved.
-    return 1 if not $self->_new_surface;
-
     my $err;
 
     # This should not die.
@@ -765,25 +747,6 @@ has validation_error => (
     is      => 'rw',
     default => '',
 );
-
-=head2 get_existing_surface
-
-Returns original surface and not the cut surface
-
-=cut
-
-sub get_existing_surface {
-    my $self = shift;
-
-    # existing surface will return you the original surface and not the cut surface
-    return $self->_new_surface
-        ? $self->new({
-            underlying_config => $self->underlying_config,
-            chronicle_reader  => $self->chronicle_reader,
-            chronicle_writer  => $self->chronicle_writer,
-        })
-        : $self;
-}
 
 =head2 save
 Saves current surface using given chronicle writer.

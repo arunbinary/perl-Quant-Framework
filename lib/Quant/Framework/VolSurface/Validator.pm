@@ -77,7 +77,11 @@ sub _do_raw_validation_on {
 sub _check_identical_surface {
     my $surface = shift;
 
-    my $existing       = $surface->get_existing_surface;
+    my $existing = $surface->new({
+        underlying_config => $surface->underlying_config,
+        chronicle_reader  => $surface->chronicle_reader,
+        chronicle_writer  => $surface->chronicle_writer,
+    });
     my @points         = @{$existing->smile_points};
     my @existing_terms = @{$existing->original_term_for_smile};
     my @new_terms      = @{$surface->original_term_for_smile};
@@ -100,7 +104,11 @@ sub _check_identical_surface {
 sub _check_volatility_jump {
     my $surface = shift;
 
-    my $existing        = $surface->get_existing_surface;
+    my $existing = $surface->new({
+        underlying_config => $surface->underlying_config,
+        chronicle_reader  => $surface->chronicle_reader,
+        chronicle_writer  => $surface->chronicle_writer,
+    });
     my @terms           = @{$surface->original_term_for_smile};
     my @new_expiry      = sort { $a <=> $b } keys %{$surface->variance_table};
     my @existing_expiry = sort { $a <=> $b } keys %{$existing->variance_table};
