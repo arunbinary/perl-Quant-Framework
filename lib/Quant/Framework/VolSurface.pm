@@ -357,7 +357,7 @@ around BUILDARGS => sub {
 
     if ($args{surface} or $args{recorded_date} or $args{surface_data}) {
         $args{surface_data} = $args{surface} if $args{surface} and not $args{surface_data};
-        delete $args{surface}; # surface will always be built from surface_data.
+        delete $args{surface};    # surface will always be built from surface_data.
         die('Must pass both "surface_data" and "recorded_date" if passing either.') if (not($args{surface_data} and $args{recorded_date}));
     }
 

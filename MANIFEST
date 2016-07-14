@@ -90,5 +90,3 @@ t/VolSurface/Moneyness/get_volatility.t
 t/VolSurface/Moneyness/moneyness_spec.t
 t/VolSurface/utils.t
 t/VolSurface/validator.t
-t/VolSurface/volatility_spread.t
-vol.csv
