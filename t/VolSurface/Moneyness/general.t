@@ -36,11 +36,11 @@ Quant::Framework::Utils::Test::create_doc(
 Quant::Framework::Utils::Test::create_doc(
     'index',
     {
-        symbol           => 'SPC',
+        symbol           => $_,
         date             => Date::Utility->new,
         chronicle_reader => $chronicle_r,
         chronicle_writer => $chronicle_w,
-    });
+    }) for (qw(SPC HSI));
 
 subtest clone => sub {
     plan tests => 5;
@@ -112,7 +112,7 @@ subtest 'get surface spot reference' => sub {
     ok(looks_like_number($spot), 'spot is a number');
 };
 
-subtest 'get_market_rr_bf' => {
+subtest 'get_market_rr_bf' => sub {
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
         chronicle_reader  => $chronicle_r,
