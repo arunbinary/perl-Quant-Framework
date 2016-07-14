@@ -42,34 +42,6 @@ Quant::Framework::Utils::Test::create_doc(
         chronicle_writer => $chronicle_w,
     }) for (qw(SPC HSI));
 
-subtest clone => sub {
-    plan tests => 5;
-    my $now     = Date::Utility->new('2012-06-14 08:00:00');
-    my $surface = {
-        'ON' => {smile => {100 => 0.1}},
-        '1W' => {smile => {100 => 0.2}}};
-    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
-        underlying_config => $underlying_config,
-        spot_reference    => $underlying_config->spot,
-        surface           => $surface,
-        recorded_date     => $now,
-        chronicle_reader  => $chronicle_r,
-        chronicle_writer  => $chronicle_w,
-    );
-
-    lives_ok { $volsurface->clone } 'Can clone Quant::Framework::VolSurface::Moneyness';
-    my $clone;
-    lives_ok { $clone = $volsurface->clone({surface_data => {ON => {smile => {100 => 0.5}}}}) };
-    isa_ok($clone, 'Quant::Framework::VolSurface::Moneyness');
-    is($clone->surface->{1}->{smile}->{100}, 0.5, 'can change attribute value when clone');
-
-    #change spot refernce by 10 pips
-    my $spot_reference = $underlying_config->spot - 0.1;
-    $clone = $volsurface->clone({spot_reference => $spot_reference});
-
-    cmp_ok($clone->spot_reference, '==', $spot_reference, 'Adjusted spot ref preserved through clone.');
-};
-
 subtest 'get available strikes on surface' => sub {
     plan tests => 2;
     my $now     = Date::Utility->new('2012-06-14 08:00:00');

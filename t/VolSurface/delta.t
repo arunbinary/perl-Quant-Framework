@@ -321,45 +321,6 @@ subtest effective_date => sub {
     is($surface->_ON_day, 2, 'In summer, 21:15 on Friday is after rollover so _ON_day is 2.');
 };
 
-subtest cloning => sub {
-    plan tests => 7;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            recorded_date     => Date::Utility->new,
-            save              => 0,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    my $clone = $surface->clone;
-
-    isa_ok($clone, 'Quant::Framework::VolSurface::Delta');
-    is($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone without overrides: underlying.');
-    is_deeply($surface->surface, $clone->surface, 'clone without overrides: surface.');
-    is($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone without overrides: recorded_date.');
-
-    $clone = $surface->clone({
-            underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxGBPNOK'),
-            surface           => {
-                7 => {
-                    smile => {
-                        25 => 0.55,
-                        50 => 0.55,
-                        75 => 0.55
-                    }}
-            },
-            recorded_date => Date::Utility->new('20-Jan-12'),
-        });
-
-    isnt($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone with overrides: underlying.');
-    cmp_ok(scalar @{$surface->term_by_day}, '!=', scalar @{$clone->term_by_day}, 'clone with overrides: surface.');
-    isnt($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone with overrides: recorded_date.');
-};
-
 subtest 'variance table' => sub {
     my $monday_bef_ro = Date::Utility->new('2016-07-04 18:00:00');
     my $surface_data  = {

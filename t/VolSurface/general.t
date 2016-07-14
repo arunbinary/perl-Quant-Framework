@@ -147,4 +147,93 @@ subtest 'get_spread' => sub {
     } qr/Unrecognized spread type/ , 'throws error if spread type is unknown';
 };
 
+subtest 'clone' => sub {
+    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
+    my $orig_delta    = Quant::Framework::Utils::Test::create_doc(
+        'volsurface_delta',
+        {
+            underlying_config => $underlying,
+            recorded_date     => Date::Utility->new,
+            save              => 0,
+            chronicle_reader  => $chronicle_r,
+            chronicle_writer  => $chronicle_w,
+        });
+
+    lives_ok {
+        my $clone = $orig_delta->clone;
+        is $clone->symbol, $orig_delta->symbol, 'symbol matches';
+        is_deeply $clone->surface_data, $orig_delta->surface_data, 'surface_data matches';
+        is $clone->recorded_date->epoch, $orig_delta->recorded_date->epoch, 'recorded_date matches';
+    } 'clone with parameters';
+
+    my $surface_data = {
+        1 => {
+            smile => {
+                50 => 0.1,
+            },
+            vol_spread => {
+                50 => 0.2
+            },
+        },
+    };
+
+    lives_ok {
+        my $clone = $orig_delta->clone({surface_data => $surface_data});
+        is $clone->symbol, $orig_delta->symbol, 'symbol matches';
+        is $clone->recorded_date->epoch, $orig_delta->recorded_date->epoch, 'recorded_date matches';
+        is_deeply $clone->surface_data, $surface_data, 'surface_data is overwritten';
+        is_deeply $clone->surface, $surface_data, 'surface is overwritten';
+    } 'clone with surface';
+
+    lives_ok {
+        my $surface = {
+            1 => {
+                smile => {
+                    50 => 0.1,
+                },
+                vol_spread => {
+                    50 => 0.2
+                },
+            },
+            7 => {
+                smile => {
+                    50 => 0.1,
+                },
+                vol_spread => {
+                    50 => 0.2
+                },
+            },
+        };
+        my $clone = $orig_delta->clone({surface => $surface, surface_data => $surface_data});
+        is $clone->symbol, $orig_delta->symbol, 'symbol matches';
+        is $clone->recorded_date->epoch, $orig_delta->recorded_date->epoch, 'recorded_date matches';
+        is_deeply $clone->surface_data, $surface_data, 'surface_data is overwritten';
+        is_deeply $clone->surface, $surface_data, 'surface is overwritten';
+    } 'clone with surface and surface_data';
+
+    my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('SPC');
+    my $moneyness = Quant::Framework::Utils::Test::create_doc(
+        'volsurface_moneyness', {
+        underlying_config => $underlying_config,
+        spot_reference    => $underlying_config->spot,
+        recorded_date     => Date::Utility->new,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+    });
+
+    lives_ok {
+        my $clone = $moneyness->clone;
+        is $clone->symbol, $moneyness->symbol, 'symbol matches';
+        is $clone->recorded_date->epoch, $moneyness->recorded_date->epoch, 'recorded_date matches';
+        is $clone->spot_reference, $moneyness->spot_reference, 'spot reference matches';
+        is_deeply $clone->surface_data, $moneyness->surface_data, 'surface_data is overwritten';
+        is_deeply $clone->surface, $moneyness->surface_data, 'surface is overwritten';
+    } 'clone without arguments';
+
+    lives_ok {
+        my $clone = $moneyness->clone({spot_reference => 100});
+        is $clone->spot_reference, 100, 'spot_reference matches';
+    };
+};
+
 done_testing();
