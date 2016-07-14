@@ -236,4 +236,39 @@ subtest 'clone' => sub {
     };
 };
 
+subtest 'original_term' => sub {
+    my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
+    my $surface_data = {
+        1 => {
+            smile => {
+                50 => 0.1,
+            },
+            vol_spread => {
+                50 => 0.2
+            },
+        },
+    };
+    my $delta      = Quant::Framework::Utils::Test::create_doc(
+        'volsurface_delta',
+        {
+            underlying_config => $underlying_config,
+            recorded_date     => Date::Utility->new,
+            surface_data      => $surface_data,
+            save              => 0,
+            chronicle_reader  => $chronicle_r,
+            chronicle_writer  => $chronicle_w,
+        });
+    $delta->surface->{5} = {
+        smile => {
+            50 => 0.2,
+        },
+        vol_spread => {
+            50 => 0.2,
+        },
+    };
+    is scalar(keys %{$delta->surface}), 2, 'added one term to surface';
+    is scalar(@{$delta->original_term_for_smile}), 1, 'original term for smile does not change.';
+    is scalar(@{$delta->original_term_for_spread}), 1, 'original term for spread does not change';
+};
+
 done_testing();
