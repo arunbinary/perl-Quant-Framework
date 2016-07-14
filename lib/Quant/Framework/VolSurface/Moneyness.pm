@@ -298,6 +298,12 @@ sub interpolate {
     return Math::Function::Interpolator->new(points => $args->{smile})->$method($args->{sought_point});
 }
 
+=head2 get_market_rr_bf
+
+Returns the rr and bf values for a given day
+
+=cut
+
 sub get_market_rr_bf {
     my ($self, $day) = @_;
 
