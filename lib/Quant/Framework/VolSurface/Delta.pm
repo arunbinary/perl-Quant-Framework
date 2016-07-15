@@ -18,11 +18,14 @@ use Moose;
 
 extends 'Quant::Framework::VolSurface';
 
+use Math::Business::BlackScholes::Binaries;
 use Number::Closest::XS qw(find_closest_numbers_around);
 use List::Util qw(min);
+use List::MoreUtils qw(any);
 use Date::Utility;
 use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness );
 use Math::Function::Interpolator;
+use VolSurface::Utils qw( get_strike_for_spot_delta );
 
 =head1 ATTRIBUTES
 
@@ -63,14 +66,7 @@ sub _build_variance_table {
     my $seconds_after_midnight = $effective_date->plus_time_interval(10 - $ny_offset_from_gmt . 'h')->seconds_after_midnight;
 
     # keys are tenor in epoch, values are associated variances.
-    my %table = (
-        $self->recorded_date->epoch => {
-            10 => 0,
-            25 => 0,
-            50 => 0,
-            75 => 0,
-            90 => 0,
-        });
+    my %table = ($self->recorded_date->epoch => {map { $_ => 0 } @{$self->smile_points}});
     foreach my $tenor (@{$self->original_term_for_smile}) {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
         foreach my $delta (@{$self->smile_points}) {
@@ -295,6 +291,12 @@ sub get_market_rr_bf {
     return $self->get_rr_bf_for_smile(\%smile);
 }
 
+sub get_smile_expiries {
+    my $self = shift;
+
+    return [map { Date::Utility->new($_) } sort { $a <=> $b } keys %{$self->variance_table}];
+}
+
 # PRIVATE #
 
 sub _convert_moneyness_to_delta {
@@ -338,6 +340,164 @@ sub _ensure_conversion_args {
     });
 
     return \%new_args;
+}
+
+sub _max_allowed_term {
+    return 380;
+}
+
+sub _max_difference_between_smile_points {
+    return 30;
+}
+
+sub _validate_smile_consistency {
+    my $self = shift;
+
+    my $surface_hash_ref = $self->surface;
+    my @days = sort { $a <=> $b } keys %$surface_hash_ref;
+    my @prev_smile;
+
+    foreach my $day (grep { exists $surface_hash_ref->{$_}->{smile} } @days) {
+        my $smile = $surface_hash_ref->{$day}->{smile};
+        my @current_smile = sort { $a <=> $b } keys %{$smile};
+
+        if (not @prev_smile) {
+            @prev_smile = @current_smile;
+            next;
+        }
+
+        if (@prev_smile != @current_smile || (any { $prev_smile[$_] != $current_smile[$_] } (0 .. $#current_smile))) {
+            die(      'Deltas['
+                    . join(',', @current_smile)
+                    . "] for maturity[$day], underlying["
+                    . $self->symbol
+                    . '] are not the same as deltas for rest of surface['
+                    . join(',', @prev_smile)
+                    . '].');
+        }
+    }
+
+    return;
+}
+
+#
+# To ensure that the volatility is arbitrage-free, the total implied variance must be strictly
+# increasing by forward moneyness.
+#       As proven by Fengler, 2005 "Arbitrage-free smoothing of the implied volatility surface"
+#       p.10, Proposition 2.1
+#
+# We check the surface market points. This is usually done at startup when volsurface object is
+# being created.
+#
+# Forward Moneyness = K/F_T
+sub _validate_termstructure_for_calendar_arbitrage {
+    my $self = shift;
+
+    my @sorted_expiries = @{$self->original_term_for_smile};
+    for (my $i = 1; $i < scalar(@sorted_expiries); $i++) {
+        my $smile      = $self->surface->{$sorted_expiries[$i]}->{smile};
+        my $smile_prev = $self->surface->{$sorted_expiries[$i - 1]}->{smile};
+        my $vol        = $smile->{50};
+        my $vol_prev   = $smile_prev->{50};
+        my $T          = $sorted_expiries[$i];
+        my $T_prev     = $sorted_expiries[$i - 1];
+        if (((($vol)**2) * $T) < (($vol_prev**2) * $T_prev)) {
+            die('Variance negative for maturity ' . $sorted_expiries[$i - 1] . ' for ATM');
+        }
+    }
+
+    return;
+}
+
+sub _admissible_check {
+    my $self = shift;
+
+    my $underlying_config = $self->underlying_config;
+    my $builder           = $self->builder;
+    my $S                 = $underlying_config->spot;
+    my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
+    my @expiries          = @{$self->get_smile_expiries};
+    my @tenors            = @{$self->original_term_for_smile};
+    my $now               = Date::Utility->new;
+
+    for (my $i = 1; $i <= $#expiries; $i++) {
+        my $day    = $tenors[$i - 1];
+        my $expiry = $expiries[$i];
+
+        die("Invalid tenor[$day] with expiry[" . $expiry->date . "] on surface. Current date[" . $now->date . ']')
+            if ($expiry->days_between($now) <= 0);
+
+        my $adjustment;
+        if ($underlying_config->market_prefer_discrete_dividend) {
+            $adjustment = $builder->build_dividend->dividend_adjustments_for_period({
+                start => $now,
+                end   => $expiry,
+            });
+            $S += $adjustment->{spot};
+        }
+
+        my $t     = ($expiry->epoch - $now->epoch) / (365 * 86400);
+        my $r     = $builder->build_interest_rate->interest_rate_for($t);
+        my $q     = ($underlying_config->market_prefer_discrete_dividend) ? 0 : $builder->build_dividend->dividend_rate_for($t);
+        my $smile = $self->surface->{$day}->{smile};
+
+        my @volatility_level = sort { $a <=> $b } keys %{$smile};
+        my $first_vol_level  = $volatility_level[0];
+        my $last_vol_level   = $volatility_level[-1];
+
+        my %prev;
+
+        foreach my $vol_level (@volatility_level) {
+            my $vol = $smile->{$vol_level};
+            # Temporarily get the Call strike via the Put side of the algorithm,
+            # as it seems not to go crazy at the extremities. Should give the same barrier.
+            my $conversion_args = {
+                atm_vol          => $vol,
+                t                => $t,
+                r_rate           => $r,
+                q_rate           => $q,
+                spot             => $S,
+                premium_adjusted => $premium_adjusted
+            };
+
+            if ($vol_level > 50) {
+                $conversion_args->{delta}       = exp(-$r * $t) - $vol_level / 100;
+                $conversion_args->{option_type} = 'VANILLA_PUT';
+            } else {
+                $conversion_args->{delta}       = $vol_level / 100;
+                $conversion_args->{option_type} = 'VANILLA_CALL';
+            }
+            my $barrier = get_strike_for_spot_delta($conversion_args);
+
+            if ($underlying_config->market_prefer_discrete_dividend) {
+                $barrier += $adjustment->{barrier};
+            }
+            my $prob = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
+            my $slope;
+
+            if (exists $prev{prob}) {
+                $slope = ($prob - $prev{prob}) / ($vol_level - $prev{vol_level});
+                # Admissible Check 1.
+                # For delta surface, the strike(prob) is decreasing(increasing) across delta point, hence the slope is positive
+                if ($slope <= 0) {
+                    die("Admissible check 1 failure for maturity[$day]. BS digital call price decreases between $prev{vol_level} and " . $vol_level);
+                }
+            }
+
+            %prev = (
+                slope     => $slope,
+                prob      => $prob,
+                vol_level => $vol_level,
+            );
+        }
+    }
+
+    return;
+}
+
+sub _validation_methods {
+    return
+        qw(_validate_age _validate_structure _validate_smile_consistency _validate_identical_surface _validate_volatility_jumps _validate_termstructure_for_calendar_arbitrage _admissible_check);
 }
 
 no Moose;
