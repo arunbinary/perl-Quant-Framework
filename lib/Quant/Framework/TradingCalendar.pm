@@ -1335,7 +1335,7 @@ sub weight_on {
 
     my $epoch = $date->truncate_to_day->epoch;
 
-    return $cache{$self->symbol}{$epoch} if exists $cache{$self->symbol} and exists $cache{$self->symbol}{$epoch};
+    return $cache{$self->symbol}{$epoch} if exists $cache{$self->symbol}{$epoch};
 
     my $base      = $self->_build_asset;
     my $numeraire = Quant::Framework::Currency->new({
