@@ -26,7 +26,6 @@ lib/Quant/Framework/VolSurface.pm
 lib/Quant/Framework/VolSurface/Delta.pm
 lib/Quant/Framework/VolSurface/Moneyness.pm
 lib/Quant/Framework/VolSurface/Utils.pm
-lib/Quant/Framework/VolSurface/Validator.pm
 Makefile.PL
 MANIFEST			This list of files
 README.md
