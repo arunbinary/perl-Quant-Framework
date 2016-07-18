@@ -5,7 +5,6 @@ use JSON qw(decode_json);
 
 use Date::Utility;
 use Quant::Framework::VolSurface::Delta;
-use Quant::Framework::VolSurface::Validator;
 use Quant::Framework::Utils::Test;
 
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
@@ -145,8 +144,6 @@ Quant::Framework::Utils::Test::create_doc(
         chronicle_reader => $chronicle_r,
         chronicle_writer => $chronicle_w
     });
-
-my $validator = Quant::Framework::VolSurface::Validator->new;
 
 Quant::Framework::Utils::Test::create_doc(
     'currency',

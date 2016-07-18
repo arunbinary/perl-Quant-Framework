@@ -21,7 +21,6 @@ use Math::Function::Interpolator;
 use Storable qw( dclone );
 
 use Quant::Framework::Utils::Types;
-use Quant::Framework::VolSurface::Validator;
 use Quant::Framework::VolSurface::Utils;
 use Quant::Framework::Utils::Builder;
 
@@ -544,7 +543,9 @@ sub set_smile {
     my $vol_spread = $self->get_smile_spread($day);
 
     # throws exception on error.
-    Quant::Framework::VolSurface::Validator->new->check_smile($day, $smile, $self->symbol);
+    if (not $self->_is_valid_volatility_smile($smile)) {
+        die("Invalid smile volatility on $day for " . $self->symbol);
+    }
 
     $surface->{$day} = {
         smile      => $smile,
@@ -761,7 +762,7 @@ sub _validate_structure {
                 die("Difference between point $level and $next_level is too great.");
             }
 
-            if (not $self->_valid_volatility_smile($smile)) {
+            if (not $self->_is_valid_volatility_smile($smile)) {
                 die("Invalid smile volatility on $day for $system_symbol");
             }
 
@@ -776,7 +777,7 @@ sub _validate_structure {
     return;
 }
 
-sub _valid_volatility_smile {
+sub _is_valid_volatility_smile {
     my ($self, $smile) = @_;
 
     foreach my $vol (values %$smile) {
