@@ -226,11 +226,13 @@ sub _market_maturities_interpolation_function {
     # Implements interpolation over time based on the way Iain M Clark does
     # it in Foreign Exchange Option Pricing, A Practitioner's Guide, page 70.
     my $effective_date = $self->effective_date;
+    my $day_in_seconds = 86400;
 
+    # Setting it to end of day. That's why we need to minus 1 second.
     my %dates = (
-        T  => $effective_date->plus_time_interval($T - 1 . 'd23h59m59s'),
-        T1 => $effective_date->plus_time_interval($T1 - 1 . 'd23h59m59s'),
-        T2 => $effective_date->plus_time_interval($T2 - 1 . 'd23h59m59s'),
+        T  => $effective_date->plus_time_interval($T * $day_in_seconds - 1),
+        T1 => $effective_date->plus_time_interval($T1 * $day_in_seconds - 1),
+        T2 => $effective_date->plus_time_interval($T2 * $day_in_seconds - 1),
     );
 
     my $tau1 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T}) / 365;
