@@ -241,6 +241,9 @@ sub get_weight {
 
     my ($date1_epoch, $date2_epoch) = ($date1->epoch, $date2->epoch);
     my $time_diff       = $date2_epoch - $date1_epoch;
+    # We sliced the weight of a given into 4-hour period for easier manipulation in the future.
+    # We might incorporate seasonality into weights.
+    # A 4-hour interval for weight calculation is good enough for now.
     my $weight_interval = 4 * 3600;
 
     my $remainder     = $date1_epoch % $weight_interval;
