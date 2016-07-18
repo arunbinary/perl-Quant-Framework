@@ -109,9 +109,9 @@ sub _build_spot_reference {
 
 USAGE:
 
-  my $vol = $s->get_volatility({moneyness => 96, days => 7});
-  my $vol = $s->get_volatility({strike => $bet->barrier, tenor => '1M'});
-  my $vol = $s->get_volatility({moneyness => 90, expiry_date => Date::Utility->new});
+  my $vol = $s->get_volatility({moneyness => 96, from => $from, to => $to});
+  my $vol = $s->get_volatility({strike => $bet->barrier, from => $from, to => $to});
+  my $vol = $s->get_volatility({moneyness => 90, from => $from, to => $to});
 
 =cut
 
