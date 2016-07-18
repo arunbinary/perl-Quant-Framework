@@ -11,36 +11,30 @@ use Date::Utility;
 use Quant::Framework::TradingCalendar;
 use Quant::Framework::Utils::Test;
 
-use Quant::Framework::StorageAccessor;
-use Quant::Framework::Holiday;
-
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
-my $storage_accessor = Quant::Framework::StorageAccessor->new(
-    chronicle_reader => $chronicle_r,
-    chronicle_writer => $chronicle_w,
-);
-
 my $date = Date::Utility->new('2013-12-01');
 note("Exchange tests for_date " . $date->date);
-
-Quant::Framework::Holiday->create(
-        storage_accessor => $storage_accessor,
-        for_date         => $date,
-    )->update({
-        "6-May-2013" => {
-            "Early May Bank Holiday" => [qw(LSE)],
+Quant::Framework::Utils::Test::create_doc(
+    'holiday',
+    {
+        recorded_date => $date,
+        calendar      => {
+            "6-May-2013" => {
+                "Early May Bank Holiday" => [qw(LSE)],
+            },
+            "25-Dec-2013" => {
+                "Christmas Day" => [qw(LSE FOREX METAL)],
+            },
+            "1-Jan-2014" => {
+                "New Year's Day" => [qw(LSE FOREX METAL)],
+            },
+            "1-Apr-2013" => {
+                "Easter Monday" => [qw(LSE)],
+            },
         },
-        "25-Dec-2013" => {
-            "Christmas Day" => [qw(LSE FOREX METAL)],
-        },
-        "1-Jan-2014" => {
-            "New Year's Day" => [qw(LSE FOREX METAL)],
-        },
-        "1-Apr-2013" => {
-            "Easter Monday" => [qw(LSE)],
-        },
-    }, $date)
-    ->save;
+        chronicle_writer => $chronicle_w,
+        chronicle_reader => $chronicle_r,
+    });
 
 subtest 'holidays' => sub {
     my ($LSE, $FOREX, $RANDOM, $METAL) =
@@ -69,7 +63,7 @@ subtest 'holidays' => sub {
     ok(!$LSE->has_holiday_on(Date::Utility->new('26-Dec-13')),  '26-Dec-13 is not a real holiday');
     ok(!$METAL->has_holiday_on(Date::Utility->new('6-May-13')), 'METAL is open on LSE holiday 6-May-13.');
     ok($METAL->has_holiday_on(Date::Utility->new('25-Dec-13')), 'METAL has holiday on 25-Dec-13.');
-
+ 
 };
 
 subtest 'pseudo holidays' => sub {
@@ -78,14 +72,14 @@ subtest 'pseudo holidays' => sub {
         chronicle_reader => $chronicle_r,
         for_date         => $date
     });
-
+    
     my $METAL = Quant::Framework::TradingCalendar->new({
         symbol           => 'METAL',
         chronicle_reader => $chronicle_r,
         locale           => 'EN',
         for_date         => $date
     });
-
+ 
 
 
     my $start = Date::Utility->new('25-Dec-13')->minus_time_interval('7d');

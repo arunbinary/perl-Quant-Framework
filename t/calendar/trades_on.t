@@ -12,16 +12,7 @@ use Test::MockModule;
 use File::ShareDir ();
 use YAML::XS qw(LoadFile);
 
-use Quant::Framework::StorageAccessor;
-use Quant::Framework::Holiday;
-
-
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
-my $storage_accessor = Quant::Framework::StorageAccessor->new(
-    chronicle_reader => $chronicle_r,
-    chronicle_writer => $chronicle_w,
-);
-
 my $date = Date::Utility->new('2013-12-08');
 note("Exchange tests for_date " . $date->date);
 
@@ -41,19 +32,21 @@ subtest 'trading days' => sub {
     }
 };
 
-Quant::Framework::Holiday->create(
-      storage_accessor => $storage_accessor,
-      for_date         => $date,
-    )->update({
-        "25-Dec-2013" => {
-            "Christmas Day" => [qw(FOREX METAL)],
+Quant::Framework::Utils::Test::create_doc(
+    'holiday',
+    {
+        recorded_date => $date,
+        calendar      => {
+            "25-Dec-2013" => {
+                "Christmas Day" => [qw(FOREX METAL)],
+            },
+            "1-Jan-2014" => {
+                "New Year's Day" => [qw(FOREX METAL)],
+            },
         },
-        "1-Jan-2014" => {
-            "New Year's Day" => [qw(FOREX METAL)],
-        },
-
-    }, $date)
-    ->save;
+        chronicle_reader => $chronicle_r,
+        chronicle_writer => $chronicle_w,
+    });
 
 subtest 'trades on holidays/pseudo-holidays' => sub {
     my @expected = qw(1 1 1 0 0 1 1 0 1 1 0 0 1 1 0);
@@ -77,7 +70,7 @@ subtest 'trades on holidays/pseudo-holidays' => sub {
         locale           => 'EN',
         for_date         => $date
     });
-
+ 
     $counter = 0;
     foreach my $days (sort { $a <=> $b } keys %{$metal->pseudo_holidays}) {
         my $date = Date::Utility->new(0)->plus_time_interval($days . 'd');

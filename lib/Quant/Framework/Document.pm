@@ -4,23 +4,41 @@ use strict;
 use warnings;
 use Date::Utility;
 
-use Moo::Role;
+use Moo;
 
 =head1 NAME
 
-Quant::Framework::Document - Role, which binds data with Chronicle
+Quant::Framework::Document - Binds data with Chronicle
 
 =head1 DESCRIPTION
 
-The class is responsible for Create, Loading and Save Q::F Objects via Data::Chronicle.
-The data itself is a hash, which content is provided by users of the class (i.e. by
+Internal representation of persistend data. Do not B<create> the class directly outside
+of Quant::Framework, although the usage of public fields outside of Quant::Framework
+is allowed.
+
+The class is responsible for loading and storing data via Data::Chronicle. The
+data itself is a hash, which content is provided by users of the class (i.e. by
 CorporateActions).
 
-The role provides C<load> (C<load_default>), C<create> (C<create_default>) and C<save>
-methods. The C<*_default> varians are provided with the intention to allow override
-the original methods with possibility still to use the default impementation. This
-might be needed to specialized symbol-less objects like Holiday.
+ # create new (transient / not-yet-persisted) Document
 
+ my $document = Quant::Framework::Document->new(
+  storage_accessor => $storage_accessor,
+  symbol           => 'frxUSDJPY',
+  data             => {},
+  for_date         => Date::Utility->new,
+ );
+
+ # persist document
+ $document->save('currency');
+
+ # load document
+ my $document2 = Quant::Framework::Document::load(
+  $storage_accessor,
+  'currency',
+  'frxUSDJPY',
+  Date::Utility->new, # optional
+ )
 
 =cut
 
@@ -39,12 +57,13 @@ The date of document creation (C<Date::Utility>)
 Hashref of data. Should be defined by the class, which uses Document. Currently the fields
 C<date> and C<symbol> are reserved.
 
+=head2 namespace
+
+The required namespace of document, e.g. 'corporate_actions'
 
 =head2 symbol
 
 The domain-specific name of document; e.g. "USAAPL" for corporate actions
-
-=head2 namespace
 
 =cut
 
@@ -67,140 +86,62 @@ has data => (
     required => 1,
 );
 
+has namespace => (
+    is       => 'ro',
+    required => 1,
+);
+
 has symbol => (
     is       => 'ro',
     required => 1,
 );
 
-=head1 REQUIED METHODS
+=head1 SUBROUTINES
 
-=head2 namespace()
+=head2 load($storage_accessor, $namespace, $symbol, $for_date)
 
-returns namespace (string) for the object, which the role is applied to,
-e.g. "corporate_actions" or "holidays"
+ my $recent_document = Quant::Framework::Document::load($storage_accessor, 'corporate_actions', "USAAPL");
 
-=head2 initialize_data()
+ my $event_date = Date::Utility->new('02-02-2016')
+ my $historical_doc = Quant::Framework::Document::load($storage_accessor, 'corporate_actions', "USAAPL", $event_date);
 
-Returns initialized hash ref for data.  For example for Holidays, it can
-be C<{ calendar => {} }>. The fields C<symbol> and C<date> are reserved,
-please, do not fill them.
+Loads the document. If the argument C<for_date> is ommitted, then loads the most recent document.
 
-=cut
-
-requires 'namespace';
-
-requires 'initialize_data';
-
-=head1 METHODS
-
-=head2 create($package, %data)
-
-=head2 create_default($package, %data)
-
-
-Creates new unsaved (non-persisted) object, to which the role is applied
-to. The C<create> can be overriden, while The C<create_default> not.
-They have the same impelemtation.
-
-
-  Quant::Framework::CorporateAction->create(
-    storage_accessor => $storage_accessor,
-    symbol           => 'USAAPL',
-    for_date         => $date,
-  );
-
-Please note, it should be invoked with package name (the module, to which the
-role is applied to), otherwise it will not work.
-
-All paremeters are required.
-
-
-=head2 load($package, %data)
-
-=head2 load_default($package, %data)
-
-Loads persiseted object. All paramters are mandatory, except
-C<$for_date> which is optional. If C<$for_date> is not specified,
-it loads the last stored object.
-
-In case, when object does not exist, it returns C<undef>.
-
-The C<load> can be overriden, while The C<load_default> not.
-They have the same impelemtation.
-
-
-  Quant::Framework::CorporateAction->load(
-    storage_accessor => $storage_accessor,
-    symbol           => 'USAAPL',
-  )
-
-Please note, it should be invoked with package name (the module, to which the
-role is applied to), otherwise it will not work.
+If document is not found, returns C<undef>.
 
 =cut
 
-sub create_default {
-    my ($package, %params) = @_;
-
-    my $storage_accessor = $params{storage_accessor} // die("missing mandatory parameter: storage_accessor");
-    my $symbol           = $params{symbol}           // die("missing mandatory parameter: symbol");
-    my $for_date         = $params{for_date}         // die("missing mandatory parameter: for_date");
-
-    my $data = $package->initialize_data;
-    die("$package->initialize_data must return an hashref") unless ref($data) eq 'HASH';
-    die("$package->initialize_data must not fill 'date' field")   if exists $data->{date};
-    die("$package->initialize_data must not fill 'symbol' field") if exists $data->{symbol};
-
-    my $obj = $package->new(
-        storage_accessor => $storage_accessor,
-        recorded_date    => $for_date,
-        symbol           => $symbol,
-        data             => $data,
-    );
-    return $obj;
-}
-*create = \&create_default;
-
-sub load_default {
-    my ($package, %params) = @_;
-
-    my $storage_accessor = $params{storage_accessor} // die("missing mandatory parameter: storage_accessor");
-    my $symbol           = $params{symbol}           // die("missing mandatory parameter: symbol");
-    # optional
-    my $for_date = $params{for_date};
-
-    my $namespace = $package->namespace;
+sub load {
+    my ($storage_accessor, $namespace, $symbol, $for_date) = @_;
 
     my $data = $storage_accessor->chronicle_reader->get($namespace, $symbol)
         or return;
 
-    my $recorded_date = Date::Utility->new($data->{date});
-
-    if ($for_date && $for_date->epoch < $recorded_date->epoch) {
+    if ($for_date && $for_date->datetime_iso8601 lt $data->{date}) {
         $data = $storage_accessor->chronicle_reader->get_for($namespace, $symbol, $for_date->epoch)
             or return;
-
-        $recorded_date = Date::Utility->new($data->{date});
     }
 
-    return $package->new(
+    return __PACKAGE__->new(
         storage_accessor => $storage_accessor,
-        recorded_date    => $recorded_date,
+        recorded_date    => $for_date // Date::Utility->new($data->{date}),
         symbol           => $symbol,
         data             => $data,
+        namespace        => $namespace,
     );
 }
-*load = \&load_default;
 
 =head2 save
 
-Stores (persists) the object in Chronicle database.
+ $document->save;
+
+Stores (persists) the document in Chronicle database.
 
 =cut
 
 sub save {
     my $self = shift;
-    # the most probably this is redundant, and can be removed in future
+    # the most probably this is redundant, anc can be removed in future
     $self->data->{date}   = $self->recorded_date->datetime_iso8601;
     $self->data->{symbol} = $self->symbol;
     $self->storage_accessor->chronicle_writer->set($self->namespace, $self->symbol, $self->data, $self->recorded_date);
