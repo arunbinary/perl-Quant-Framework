@@ -15,38 +15,34 @@ use YAML::XS qw(LoadFile);
 use Quant::Framework::TradingCalendar;
 use Quant::Framework::InterestRate;
 use Quant::Framework::Utils::Test;
-use Quant::Framework::StorageAccessor;
-use Quant::Framework::Holiday;
 
 use Readonly;
 Readonly::Scalar my $HKSE_TRADE_DURATION_DAY => ((2 * 3600 + 29 * 60) + (2 * 3600 + 40 * 60));
 Readonly::Scalar my $HKSE_TRADE_DURATION_MORNING => 2 * 3600 + 29 * 60;
 Readonly::Scalar my $HKSE_TRADE_DURATION_EVENING => 2 * 3600 + 40 * 60;
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
-my $storage_accessor = Quant::Framework::StorageAccessor->new(
-    chronicle_reader => $chronicle_r,
-    chronicle_writer => $chronicle_w,
-);
-
 my $date = Date::Utility->new('2013-12-01');    # first of December 2014
-Quant::Framework::Holiday->create(
-      storage_accessor => $storage_accessor,
-      for_date         => $date,
-    )->update({
-        "6-May-2013" => {
-            "Early May Bank Holiday" => [qw(LSE)],
+Quant::Framework::Utils::Test::create_doc(
+    'holiday',
+    {
+        recorded_date => $date,
+        calendar      => {
+            "6-May-2013" => {
+                "Early May Bank Holiday" => [qw(LSE)],
+            },
+            "25-Dec-2013" => {
+                "Christmas Day" => [qw(LSE FOREX METAL)],
+            },
+            "1-Jan-2014" => {
+                "New Year's Day" => [qw(LSE FOREX METAL)],
+            },
+            "1-Apr-2013" => {
+                "Easter Monday" => [qw(LSE)],
+            },
         },
-        "25-Dec-2013" => {
-            "Christmas Day" => [qw(LSE FOREX METAL)],
-        },
-        "1-Jan-2014" => {
-            "New Year's Day" => [qw(LSE FOREX METAL)],
-        },
-        "1-Apr-2013" => {
-            "Easter Monday" => [qw(LSE)],
-        },
-    }, $date)
-    ->save;
+        chronicle_reader => $chronicle_r,
+        chronicle_writer => $chronicle_w,
+    });
 
 Quant::Framework::Utils::Test::create_doc(
     'partial_trading',
@@ -213,7 +209,7 @@ subtest 'Whole bunch of stuff.' => sub {
 
     is($FSE->calendar_days_to_trade_date_after(Date::Utility->new('20-Dec-13')), 3, '3 calendar days until next trading day on FSE after 20-Dec-13');
     is($FSE->calendar_days_to_trade_date_after(Date::Utility->new('27-Dec-13')), 3, '3 calendar days until next trading day on FSE after 27-Dec-13');
-
+    
     is($METAL->trade_date_after(Date::Utility->new('20-Dec-13'))->date, '2013-12-23', '23-Dec-13 is next trading day on METAL after 20-Dec-13');
     is($METAL->calendar_days_to_trade_date_after(Date::Utility->new('20-Dec-13')),
         3, '3 calendar days until next trading day on METAL after 20-Dec-13');
@@ -226,7 +222,7 @@ subtest 'Whole bunch of stuff.' => sub {
         '2 calendar days until next trading day on METAL after 9-Mar-13');
     is($METAL->calendar_days_to_trade_date_after(Date::Utility->new('10-Mar-13')),
         1, '1 calendar day until next trading day on METAL after 10-Mar-13');
-
+ 
 
 
 
