@@ -240,14 +240,17 @@ subtest '_check_structure' => sub {
     }
     qr/Must be at least two maturities on vol surface/, 'Only one maturity on surface.';
 
-    throws_ok {
-        $validator->validate_surface(
-            _sample_surface({
-                    surface => {
-                        1  => {smile => {50 => 0.2}},
-                        -1 => {}}}));
+    warning_like {
+        throws_ok {
+            $validator->validate_surface(
+                _sample_surface({
+                        surface => {
+                            1  => {smile => {50 => 0.2}},
+                            -1 => {}}}));
+        }
+        qr/Not a positive integer/, 'Maturity on surface is negative.';
     }
-    qr/Not a positive integer/, 'Maturity on surface is negative.';
+    qr/Unknown tenor found on volatility/, 'Unknown tenors';
 
     throws_ok {
         my $sample = Quant::Framework::Utils::Test::create_doc(
@@ -637,7 +640,7 @@ sub _sample_surface {
 
     my $u_c = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
 
-    Quant::Framework::Utils::Test::create_doc(
+    return Quant::Framework::Utils::Test::create_doc(
         'volsurface_delta',
         {
             symbol            => 'frxEURUSD',
@@ -646,14 +649,9 @@ sub _sample_surface {
             %$args,
             recorded_date    => Date::Utility->new,
             chronicle_reader => $chronicle_r,
-            chronicle_writer => $chronicle_w
+            chronicle_writer => $chronicle_w,
+            save             => 0,
         });
-
-    return Quant::Framework::VolSurface::Delta->new({
-        underlying_config => $u_c,
-        chronicle_reader  => $chronicle_r,
-        chronicle_writer  => $chronicle_w
-    });
 }
 
 done_testing;
