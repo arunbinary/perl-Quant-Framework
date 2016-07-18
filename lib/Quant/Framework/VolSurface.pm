@@ -680,6 +680,12 @@ sub fetch_historical_surface_date {
     return \@dates;
 }
 
+=head2 is_valid
+
+Does this volatility surface pass our validation.
+
+=cut
+
 sub is_valid {
     my $self = shift;
 

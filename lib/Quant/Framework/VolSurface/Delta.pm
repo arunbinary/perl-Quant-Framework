@@ -291,6 +291,12 @@ sub get_market_rr_bf {
     return $self->get_rr_bf_for_smile(\%smile);
 }
 
+=head2 get_smile_expiries
+
+An array reference of that contains expiry dates for smiles on the volatility surface.
+
+=cut
+
 sub get_smile_expiries {
     my $self = shift;
 
