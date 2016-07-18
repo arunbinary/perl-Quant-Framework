@@ -143,7 +143,7 @@ sub _build_surface {
 
             $surface_data->{$day} = delete $surface_data->{$maturity};
             $surface_data->{$day}{tenor} = $maturity;
-        } else {
+        } elsif ($maturity !~ /^\d+$/) {
             warn('Unknown tenor found on volatility surface for ' . $self->symbol);
         }
     }
