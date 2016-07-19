@@ -437,7 +437,10 @@ sub _admissible_check {
                 # Admissible Check 1.
                 # For moneyness surface, the strike(prob) is increasing(decreasing) across moneyness point, hence the slope is negative
                 if ($slope >= 0.0) {
-                    die("Admissible check 1 failure for maturity[$day]. BS digital call price decreases between $prev{vol_level} and " . $vol_level);
+                    die(      "Admissible check 1 failure for symbol["
+                            . $self->symbol
+                            . "] maturity[$day]. BS digital call price decreases between $prev{vol_level} and "
+                            . $vol_level);
                 }
             }
 

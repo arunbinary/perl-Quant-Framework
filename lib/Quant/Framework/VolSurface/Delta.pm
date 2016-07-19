@@ -411,7 +411,7 @@ sub _validate_termstructure_for_calendar_arbitrage {
         my $T          = $sorted_expiries[$i];
         my $T_prev     = $sorted_expiries[$i - 1];
         if (((($vol)**2) * $T) < (($vol_prev**2) * $T_prev)) {
-            die('Variance negative for maturity ' . $sorted_expiries[$i - 1] . ' for ATM');
+            die('Negative variance found on ' . $self->symbol . ' for maturity ' . $sorted_expiries[$i - 1] . ' for ATM');
         }
     }
 
@@ -489,7 +489,10 @@ sub _admissible_check {
                 # Admissible Check 1.
                 # For delta surface, the strike(prob) is decreasing(increasing) across delta point, hence the slope is positive
                 if ($slope <= 0) {
-                    die("Admissible check 1 failure for maturity[$day]. BS digital call price decreases between $prev{vol_level} and " . $vol_level);
+                    die(      "Admissible check 1 failure for symbol["
+                            . $self->symbol
+                            . "] maturity[$day]. BS digital call price decreases between $prev{vol_level} and "
+                            . $vol_level);
                 }
             }
 

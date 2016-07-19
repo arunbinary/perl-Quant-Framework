@@ -727,7 +727,7 @@ sub _validate_structure {
     my @days = sort { $a <=> $b } keys %{$surface_hashref};
 
     if (@days < 2) {
-        die('Must be at least two maturities on vol surface.');
+        die('Must be at least two maturities on vol surface for ' . $self->symbol . '.');
     }
 
     if ($days[-1] > $self->_max_allowed_term) {
@@ -761,7 +761,7 @@ sub _validate_structure {
 
             my $next_level = $volatility_level[$i + 1];
             if (abs($level - $next_level) > $self->_max_difference_between_smile_points) {
-                die("Difference between point $level and $next_level is too great.");
+                die("Difference between point $level and $next_level is too great for days $day.");
             }
 
             if (not $self->_is_valid_volatility_smile($smile)) {
@@ -817,7 +817,7 @@ sub _validate_identical_surface {
     my $existing_surface_epoch = Date::Utility->new($self->document->{date})->epoch;
 
     if (time - $existing_surface_epoch > 15000 and not $self->underlying_config->quanto_only) {
-        die('Surface data has not changed since last update [' . $existing_surface_epoch . '].');
+        die('Surface data has not changed since last update [' . $existing_surface_epoch . '] for ' . $self->symbol . '.');
     }
 
     return;
@@ -863,7 +863,9 @@ sub _validate_volatility_jumps {
                         . $diff
                         . '] percentage diff ['
                         . $percentage_diff
-                        . ']');
+                        . '] for '
+                        . $self->symbol
+                        . '.');
             }
         }
     }
