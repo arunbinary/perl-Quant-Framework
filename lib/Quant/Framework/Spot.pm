@@ -14,41 +14,22 @@ use Quant::Framework::Spot::DatabaseAPI;
 
 Quant::Framework::Spot - Used to store/retrieve spot prices into/from local Redis storage
 
-=head1 VERSION
-
-Version 0.01
-
 =cut
 
-our $VERSION = '0.01';
-
-has symbol => (
+has for_date => (
     is       => 'ro',
-    required => 1,
 );
 
-has for_date => (
-    is => 'ro',
+has underlying_config => (
+    is       => 'ro',
 );
 
 has calendar => (
-    is => 'ro',
+    is       => 'ro',
 );
 
-has use_official_ohlc => (
-    is => 'ro',
-);
-
-has 'feed_api' => (
-    is      => 'ro',
-    isa     => 'Quant::Framework::Spot::DatabaseAPI',
-    handles => {
-        ticks_in_between_start_end   => 'ticks_start_end',
-        ticks_in_between_start_limit => 'ticks_start_limit',
-        ticks_in_between_end_limit   => 'ticks_end_limit',
-        ohlc_between_start_end       => 'ohlc_start_end',
-        next_tick_after              => 'tick_after',
-    },
+has feed_api => (
+    is       => 'ro',
 );
 
 =head1 SYNOPSIS
@@ -83,7 +64,7 @@ sub spot_tick {
 
     return $self->tick_at($self->for_date->epoch, {allow_inconsistent => 1}) if $self->for_date;
 
-    my $value = Cache::RedisDB->get('COMBINED_REALTIME', $self->symbol);
+    my $value = Cache::RedisDB->get('COMBINED_REALTIME', $self->underlying_config->symbol);
     my $tick;
     if ($value) {
         $tick = Quant::Framework::Spot::Tick->new($value);
@@ -136,7 +117,7 @@ sub tick_at {
     my $pricing_date = Date::Utility->new($timestamp);
     my $tick;
 
-    if ($self->use_official_ohlc
+    if ($self->underlying_config->use_official_ohlc
         and not $self->calendar->trades_on($pricing_date))
     {
         my $last_trading_day = $self->calendar->trade_date_before($pricing_date);
@@ -178,7 +159,7 @@ sub closing_tick_on {
             # So we also need to change it to the closing time. Meh.
             my $not_tick = $ohlc->[0];
             return Quant::Framework::Spot::Tick->new({
-                symbol => $self->symbol,
+                symbol => $self->underlying_config->symbol,
                 epoch  => $closing->epoch,
                 quote  => $not_tick->close,
             });
@@ -214,7 +195,7 @@ sub set_spot_tick {
     } else {
         $tick = Quant::Framework::Spot::Tick->new($value);
     }
-    Cache::RedisDB->set_nw('COMBINED_REALTIME', $self->symbol, $value);
+    Cache::RedisDB->set_nw('COMBINED_REALTIME', $self->underlying_config->symbol, $value);
     return $tick;
 }
 

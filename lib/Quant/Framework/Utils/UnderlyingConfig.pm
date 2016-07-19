@@ -280,4 +280,13 @@ has asset_class => (
     isa => 'Str',
 );
 
+
+has use_official_ohlc => (
+    is  => 'ro',
+);
+
+has spot_db_args => (
+    is  => 'ro',
+);
+
 1;

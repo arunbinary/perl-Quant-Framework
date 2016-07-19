@@ -180,4 +180,22 @@ sub build_currency {
     });
 }
 
+
+sub build_feed_api {
+    my $self = shift;
+
+    return Quant::Framework::Spot::DatabaseAPI->new($self->underlying_config->spot_db_args);
+}
+
+sub build_spot {
+    my $self = shift;
+
+    return Quant::Framework::Spot->new({
+            for_date          => $self->for_date,
+            underlying_config => $self->config,
+            calendar          => $self->build_trading_calendar,
+            feed_api          => $self->build_feed_api,
+        });
+}
+
 1;
