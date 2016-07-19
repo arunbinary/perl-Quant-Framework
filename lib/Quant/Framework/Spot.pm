@@ -17,19 +17,19 @@ Quant::Framework::Spot - Used to store/retrieve spot prices into/from local Redi
 =cut
 
 has for_date => (
-    is       => 'ro',
+    is => 'ro',
 );
 
 has underlying_config => (
-    is       => 'ro',
+    is => 'ro',
 );
 
 has calendar => (
-    is       => 'ro',
+    is => 'ro',
 );
 
 has feed_api => (
-    is       => 'ro',
+    is => 'ro',
 );
 
 =head1 SYNOPSIS
@@ -78,21 +78,19 @@ sub spot_tick {
     return $tick;
 }
 
-
 =head2 spot_tick_hash      
 
  Returns a hash reference denoting available fields in the spot_tick       
 
 =cut      
 
-sub spot_tick_hash {      
-    my $self = shift;     
+sub spot_tick_hash {
+    my $self = shift;
 
-    my $tick = $self->spot_tick;      
+    my $tick = $self->spot_tick;
 
-    return ($tick) ? $tick->as_hash : undef;      
-}     
-
+    return ($tick) ? $tick->as_hash : undef;
+}
 
 =head2 tick_at
 
@@ -224,12 +222,12 @@ Resize a value to conform to the pip size of this underlying
 sub pipsized_value {
     my ($self, $value, $custom) = @_;
 
-    my $display_decimals = log(1 / $self->underlying_config->pip_size) / log(10);
+    my $orig_display_decimals = log(1 / $self->underlying_config->pip_size) / log(10);
 
     my ($pip_size, $display_decimals) =
           ($custom)
         ? ($custom, log(1 / $custom) / log(10))
-        : ($self->underlying_config->pip_size, $display_decimals);
+        : ($self->underlying_config->pip_size, $orig_display_decimals);
     if (defined $value and looks_like_number($value)) {
         $value = sprintf '%.' . $display_decimals . 'f', $value;
     }
