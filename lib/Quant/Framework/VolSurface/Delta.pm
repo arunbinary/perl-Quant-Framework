@@ -287,11 +287,11 @@ Returns the rr and bf values for a given day
 =cut
 
 sub get_market_rr_bf {
-    my ($self, $from, $to) = @_;
+    my ($self, $days) = @_;
 
-    my %smile = %{$self->get_smile($from, $to)};
+    my $smile = $self->get_surface_smile($days);
 
-    return $self->get_rr_bf_for_smile(\%smile);
+    return $self->get_rr_bf_for_smile($smile);
 }
 
 =head2 get_smile_expiries

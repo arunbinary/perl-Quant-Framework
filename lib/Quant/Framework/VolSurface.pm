@@ -906,6 +906,30 @@ sub get_surface_smile {
     return $self->surface->{$days}->{smile} // {};
 }
 
+=head2 get_surface_volatility
+
+Returns the volatility point based on the raw volatility surface data.
+Returns undef if requested smile is not present.
+Returns the interpolated/raw volatility point across smile if requested smile is present.
+
+=cut
+
+sub get_surface_volatility {
+    my ($self, $days, $smile_point) = @_;
+
+    die('[days] and [delta] are required.') if (not($days and $delta));
+
+    my $smile = $self->get_surface_smile($days);
+
+    return if not keys %$smile;
+    return $smile->{$delta} if $smile->{$delta};
+
+    return $self->interpolate({
+        smile        => $smile,
+        sought_point => $smile_point,
+    });
+}
+
 =head2 clone
 
 USAGE:
