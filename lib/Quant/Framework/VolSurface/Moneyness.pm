@@ -58,35 +58,6 @@ sub _build_surface_data {
     return $self->_clean($surface);
 }
 
-has variance_table => (
-    is         => 'ro',
-    lazy_build => 1,
-);
-
-sub _build_variance_table {
-    my $self = shift;
-
-    my $raw_surface    = $self->surface;
-    my $effective_date = $self->effective_date;
-    my $close          = $self->calendar->standard_closing_on($effective_date);
-
-    die 'Attempt to update volatility surface for ' . $self->symbol . ' when the exchange is closed' unless $close;
-
-    # keys are tenor in epoch, values are associated variances.
-    my %table = (
-        $self->recorded_date->epoch => {map { $_ => 0 } @{$self->smile_points}},
-    );
-    foreach my $tenor (@{$self->original_term_for_smile}) {
-        my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $close->seconds_after_midnight . 's')->epoch;
-        foreach my $moneyness (@{$self->smile_points}) {
-            my $volatility = $raw_surface->{$tenor}{smile}{$moneyness};
-            $table{$epoch}{$moneyness} = $volatility**2 * $tenor if $volatility;
-        }
-    }
-
-    return \%table;
-}
-
 =head2 type
 
 Return the surface type
@@ -315,6 +286,24 @@ sub get_market_rr_bf {
     return $self->get_rr_bf_for_smile(\%smile);
 }
 
+=head2 get_smile_expiries
+
+An array reference of that contains expiry dates for smiles on the volatility surface.
+
+=cut
+
+sub get_smile_expiries {
+    my $self = shift;
+
+    my $raw_surface    = $self->surface;
+    my $effective_date = $self->effective_date;
+    my $close          = $self->calendar->standard_closing_on($effective_date);
+
+    die 'Attempt to update volatility surface for ' . $self->symbol . ' when the exchange is closed' unless $close;
+
+    return [map { $effective_date->plus_time_interval($_ . 'd' . $close->seconds_after_midnight . 's') } @{$self->original_term_for_smile}];
+}
+
 ## PRIVATE ##
 
 sub _calculate_vol_for_delta {
@@ -383,6 +372,128 @@ sub _convert_moneyness_smile_to_delta {
     }
 
     return \%deltas,;
+}
+
+sub _max_allowed_term {
+    return 750;
+}
+
+sub _max_difference_between_smile_points {
+    return 100;
+}
+
+sub _admissible_check {
+    my $self = shift;
+
+    my $underlying_config = $self->underlying_config;
+    my $builder           = $self->builder;
+    my $S                 = $underlying_config->spot;
+    my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
+    my @expiries          = @{$self->get_smile_expiries};
+    my @tenors            = @{$self->original_term_for_smile};
+    my $now               = Date::Utility->new;
+
+    for (my $i = 1; $i <= $#expiries; $i++) {
+        my $day    = $tenors[$i - 1];
+        my $expiry = $expiries[$i];
+
+        die("Invalid tenor[$day] with expiry[" . $expiry->date . "] on surface. Current date[" . $now->date . ']')
+            if ($expiry->days_between($now) <= 0);
+
+        my $adjustment;
+        if ($underlying_config->market_prefer_discrete_dividend) {
+            $adjustment = $builder->build_dividend->dividend_adjustments_for_period({
+                start => $now,
+                end   => $expiry,
+            });
+            $S += $adjustment->{spot};
+        }
+
+        my $t     = ($expiry->epoch - $now->epoch) / (365 * 86400);
+        my $r     = $builder->build_interest_rate->interest_rate_for($t);
+        my $q     = ($underlying_config->market_prefer_discrete_dividend) ? 0 : $builder->build_dividend->dividend_rate_for($t);
+        my $smile = $self->surface->{$day}->{smile};
+
+        my @volatility_level = sort { $a <=> $b } keys %{$smile};
+        my $first_vol_level  = $volatility_level[0];
+        my $last_vol_level   = $volatility_level[-1];
+
+        my %prev;
+
+        foreach my $vol_level (@volatility_level) {
+            my $vol     = $smile->{$vol_level};
+            my $barrier = $vol_level / 100 * $S;
+
+            if ($underlying_config->market_prefer_discrete_dividend) {
+                $barrier += $adjustment->{barrier};
+            }
+
+            my $prob = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
+            my $slope;
+
+            if (exists $prev{prob}) {
+                $slope = ($prob - $prev{prob}) / ($vol_level - $prev{vol_level});
+
+                # Admissible Check 1.
+                # For moneyness surface, the strike(prob) is increasing(decreasing) across moneyness point, hence the slope is negative
+                if ($slope >= 0.0) {
+                    die(      "Admissible check 1 failure for symbol["
+                            . $self->symbol
+                            . "] maturity[$day]. BS digital call price decreases between $prev{vol_level} and "
+                            . $vol_level);
+                }
+            }
+
+            %prev = (
+                slope     => $slope,
+                prob      => $prob,
+                vol_level => $vol_level,
+            );
+
+            next
+                if ($vol_level == $first_vol_level
+                || $vol_level == $last_vol_level);
+
+            $barrier = $vol_level / 100 * $S;
+            my $h = (2.0 / 100) * $S;
+
+            my %vol_period = (
+                from => $self->recorded_date,
+                to   => $expiry,
+            );
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level - 2),
+                %vol_period,
+            });
+            my $bet_minus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier - $h, $t, $r, $r - $q, $vol);
+
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level),
+                %vol_period,
+            });
+            my $bet = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
+
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level + 2),
+                %vol_period,
+            });
+            my $bet_plus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier + $h, $t, $r, $r - $q, $vol);
+
+            ## The actual finite difference formula has a / $h**2, but since we're checking
+            ## for negativity, we don't need it. Also, we introducted an error margin to allow
+            ## surfaces that are close to passing through.
+            my $convexity_flag = $bet_minus_h - 2 * $bet + $bet_plus_h;
+            if ($convexity_flag < -0.009) {
+                die("Admissible check 2 failure for maturity[$day] strike center[$vol_level] convexity value is [$convexity_flag].");
+            }
+        }
+    }
+
+    return;
+}
+
+sub _validation_methods {
+    return qw(_validate_age _validate_structure _validate_identical_surface _validate_volatility_jumps _admissible_check);
 }
 
 no Moose;
