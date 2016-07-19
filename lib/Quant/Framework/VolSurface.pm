@@ -783,6 +783,7 @@ sub _is_valid_volatility_smile {
     my ($self, $smile) = @_;
 
     foreach my $vol (values %$smile) {
+        # sanity check on volatility. Cannot be more than 500% and must be a number.
         return if ($vol !~ /^\d?\.?\d*$/ or $vol > 5);
     }
 
