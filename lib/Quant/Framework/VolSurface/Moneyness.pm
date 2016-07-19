@@ -387,7 +387,7 @@ sub _admissible_check {
 
     my $underlying_config = $self->underlying_config;
     my $builder           = $self->builder;
-    my $S                 = $underlying_config->spot;
+    my $S                 = $self->spot_reference;
     my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
     my @expiries          = @{$self->get_smile_expiries};
     my @tenors            = @{$self->original_term_for_smile};
