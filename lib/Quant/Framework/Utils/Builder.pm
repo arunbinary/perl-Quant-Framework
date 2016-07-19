@@ -192,7 +192,7 @@ sub build_spot {
 
     return Quant::Framework::Spot->new({
             for_date          => $self->for_date,
-            underlying_config => $self->config,
+            underlying_config => $self->underlying_config,
             calendar          => $self->build_trading_calendar,
             feed_api          => $self->build_feed_api,
         });
