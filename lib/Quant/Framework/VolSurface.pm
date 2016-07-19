@@ -362,6 +362,8 @@ around BUILDARGS => sub {
         die('Must pass both "surface_data" and "recorded_date" if passing either.') if (not($args{surface_data} and $args{recorded_date}));
     }
 
+    delete $args{symbol};
+
     return $class->$orig(%args);
 };
 

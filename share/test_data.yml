@@ -142,7 +142,6 @@ correlation_matrix:
 volsurface_delta:
   class_name: 'Quant::Framework::VolSurface::Delta'
   data:
-    symbol: frxUSDJPY
     surface:
       7:
         smile:
