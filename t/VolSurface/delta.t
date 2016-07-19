@@ -212,7 +212,7 @@ subtest get_market_rr_bf => sub {
                     }}}});
 
     my $value;
-    lives_ok { $value = $surface->get_market_rr_bf($surface->recorded_date, $surface->recorded_date->plus_time_interval('2d')) }
+    lives_ok { $value = $surface->get_market_rr_bf(7) }
     "can get market RR and BF values";
     ok(looks_like_number($value->{RR_25}), "RR_25 is a number");
     ok(looks_like_number($value->{BF_25}), "BF_25 is a number");
