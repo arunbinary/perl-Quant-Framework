@@ -458,7 +458,7 @@ subtest _validate_termstructure_for_calendar_arbitrage => sub {
     );
 
     ok !$surface->is_valid, 'invalid if surface has calendar arbitrage';
-    like($surface->validation_error, qr/Variance negative/, 'Negative Variance check');
+    like($surface->validation_error, qr/Negative variance/, 'Negative Variance check');
 
 };
 
