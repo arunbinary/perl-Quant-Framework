@@ -755,12 +755,12 @@ Returns the interpolated/raw volatility point across smile if requested smile is
 sub get_surface_volatility {
     my ($self, $days, $smile_point) = @_;
 
-    die('[days] and [delta] are required.') if (not($days and $delta));
+    die('[days] and [smile_point] are required.') if (not($days and $smile_point));
 
     my $smile = $self->get_surface_smile($days);
 
     return if not keys %$smile;
-    return $smile->{$delta} if $smile->{$delta};
+    return $smile->{$smile_point} if $smile->{$smile_point};
 
     return $self->interpolate({
         smile        => $smile,
