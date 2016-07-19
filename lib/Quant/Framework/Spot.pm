@@ -212,7 +212,28 @@ sub spot_quote {
     my $last_tick = $self->spot_tick;
     $last_price = $last_tick->quote if $last_tick;
 
-    return $last_price;
+    return $self->pipsized_value($last_price);
+}
+
+=head2 pipsized_value
+
+Resize a value to conform to the pip size of this underlying
+
+=cut
+
+sub pipsized_value {
+    my ($self, $value, $custom) = @_;
+
+    my $display_decimals = log(1 / $self->underlying_config->pip_size) / log(10);
+
+    my ($pip_size, $display_decimals) =
+          ($custom)
+        ? ($custom, log(1 / $custom) / log(10))
+        : ($self->underlying_config->pip_size, $display_decimals);
+    if (defined $value and looks_like_number($value)) {
+        $value = sprintf '%.' . $display_decimals . 'f', $value;
+    }
+    return $value;
 }
 
 =head2 spot_time
