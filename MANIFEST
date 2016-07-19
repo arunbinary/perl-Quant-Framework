@@ -14,6 +14,10 @@ lib/Quant/Framework/Holiday.pm
 lib/Quant/Framework/ImpliedRate.pm
 lib/Quant/Framework/InterestRate.pm
 lib/Quant/Framework/PartialTrading.pm
+lib/Quant/Framework/Spot.pm
+lib/Quant/Framework/Spot/DatabaseAPI.pm
+lib/Quant/Framework/Spot/OHLC.pm
+lib/Quant/Framework/Spot/Tick.pm
 lib/Quant/Framework/StorageAccessor.pm
 lib/Quant/Framework/TradingCalendar.pm
 lib/Quant/Framework/Utils/Builder.pm
@@ -58,6 +62,8 @@ t/rates/implied_rate.t
 t/rates/interest_rate.t
 t/rc/.perlcriticrc
 t/rc/.perltidyrc
+t/Spot/01_invert.t
+t/Spot/02_spot.t
 t/tentative_events.t
 t/VolSurface/Cutoff.t
 t/VolSurface/delta.t

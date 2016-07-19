@@ -1,4 +1,4 @@
-package Finance::Spot;
+package Quant::Framework::Spot;
 
 use 5.006;
 use strict;
@@ -7,12 +7,12 @@ use warnings;
 use Moose;
 use Scalar::Util qw( looks_like_number );
 use Cache::RedisDB;
-use Finance::Spot::Tick;
-use Finance::Spot::DatabaseAPI;
+use Quant::Framework::Spot::Tick;
+use Quant::Framework::Spot::DatabaseAPI;
 
 =head1 NAME
 
-Finance::Spot - Used to store/retrieve spot prices into/from local Redis storage
+Quant::Framework::Spot - Used to store/retrieve spot prices into/from local Redis storage
 
 =head1 VERSION
 
@@ -41,7 +41,7 @@ has use_official_ohlc => (
 
 has 'feed_api' => (
     is      => 'ro',
-    isa     => 'Finance::Spot::DatabaseAPI',
+    isa     => 'Quant::Framework::Spot::DatabaseAPI',
     handles => {
         ticks_in_between_start_end   => 'ticks_start_end',
         ticks_in_between_start_limit => 'ticks_start_limit',
@@ -60,9 +60,9 @@ is received. In this case, module will use the given code references to fetch
 spot price from a secondary storage (this can be a database).
 If you omit for_date parameter, you will fetch latest spot price.
 
-    use Finance::Spot;
+    use Quant::Framework::Spot;
 
-    my $foo = Finance::Spot->new({
+    my $foo = Quant::Framework::Spot->new({
         symbol => 'GDAXI',
         for_date => Date::Utility->new('2016-09-11 12:29:10')
     });
@@ -86,7 +86,7 @@ sub spot_tick {
     my $value = Cache::RedisDB->get('COMBINED_REALTIME', $self->symbol);
     my $tick;
     if ($value) {
-        $tick = Finance::Spot::Tick->new($value);
+        $tick = Quant::Framework::Spot::Tick->new($value);
     } else {
         $tick = $self->tick_at(time, {allow_inconsistent => 1});
         if ($tick) {
@@ -177,7 +177,7 @@ sub closing_tick_on {
             # The epochs for these are set to be the START of the period.
             # So we also need to change it to the closing time. Meh.
             my $not_tick = $ohlc->[0];
-            return Finance::Spot::Tick->new({
+            return Quant::Framework::Spot::Tick->new({
                 symbol => $self->symbol,
                 epoch  => $closing->epoch,
                 quote  => $not_tick->close,
@@ -208,11 +208,11 @@ sub set_spot_tick {
     my ($self, $value) = @_;
 
     my $tick;
-    if (ref $value eq 'Finance::Spot::Tick') {
+    if (ref $value eq 'Quant::Framework::Spot::Tick') {
         $tick  = $value;
         $value = $value->as_hash;
     } else {
-        $tick = Finance::Spot::Tick->new($value);
+        $tick = Quant::Framework::Spot::Tick->new($value);
     }
     Cache::RedisDB->set_nw('COMBINED_REALTIME', $self->symbol, $value);
     return $tick;
@@ -258,93 +258,4 @@ sub spot_age {
     return defined $tick_time && time - $tick_time;
 }
 
-=head1 AUTHOR
-
-Binary.com, C<< <support at binary.com> >>
-
-=head1 BUGS
-
-Please report any bugs or feature requests to C<bug-finance-spot at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Finance-Spot>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
-
-
-
-
-=head1 SUPPORT
-
-You can find documentation for this module with the perldoc command.
-
-    perldoc Finance::Spot
-
-
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Finance-Spot>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Finance-Spot>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Finance-Spot>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Finance-Spot/>
-
-=back
-
-
-=head1 ACKNOWLEDGEMENTS
-
-
-=head1 LICENSE AND COPYRIGHT
-
-Copyright 2016 Binary.com.
-
-This program is free software; you can redistribute it and/or modify it
-under the terms of the the Artistic License (2.0). You may obtain a
-copy of the full license at:
-
-L<http://www.perlfoundation.org/artistic_license_2_0>
-
-Any use, modification, and distribution of the Standard or Modified
-Versions is governed by this Artistic License. By using, modifying or
-distributing the Package, you accept this license. Do not use, modify,
-or distribute the Package, if you do not accept this license.
-
-If your Modified Version has been derived from a Modified Version made
-by someone other than you, you are nevertheless required to ensure that
-your Modified Version complies with the requirements of this license.
-
-This license does not grant you the right to use any trademark, service
-mark, tradename, or logo of the Copyright Holder.
-
-This license includes the non-exclusive, worldwide, free-of-charge
-patent license to make, have made, use, offer to sell, sell, import and
-otherwise transfer the Package with respect to any patent claims
-licensable by the Copyright Holder that are necessarily infringed by the
-Package. If you institute patent litigation (including a cross-claim or
-counterclaim) against any party alleging that the Package constitutes
-direct or contributory patent infringement, then this Artistic License
-to you shall terminate on the date that such litigation is filed.
-
-Disclaimer of Warranty: THE PACKAGE IS PROVIDED BY THE COPYRIGHT HOLDER
-AND CONTRIBUTORS "AS IS' AND WITHOUT ANY EXPRESS OR IMPLIED WARRANTIES.
-THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE, OR NON-INFRINGEMENT ARE DISCLAIMED TO THE EXTENT PERMITTED BY
-YOUR LOCAL LAW. UNLESS REQUIRED BY LAW, NO COPYRIGHT HOLDER OR
-CONTRIBUTOR WILL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, OR
-CONSEQUENTIAL DAMAGES ARISING IN ANY WAY OUT OF THE USE OF THE PACKAGE,
-EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-
-=cut
-
-1;    # End of Finance::Spot
+1;    # End of Quant::Framework::Spot

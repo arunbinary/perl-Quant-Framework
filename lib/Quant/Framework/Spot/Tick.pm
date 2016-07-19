@@ -1,12 +1,12 @@
-package Finance::Spot::Tick;
+package Quant::Framework::Spot::Tick;
 
 =head1 NAME
 
-Finance::Spot::Tick
+Quant::Framework::Spot::Tick
 
 =head1 SYNOPSYS
 
-    my $tick = Finance::Spot::Tick->new({
+    my $tick = Quant::Framework::Spot::Tick->new({
             symbol => 'frxRMBMNT',
             epoch  => 1340871449,
             bid    => 2.01,

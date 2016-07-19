@@ -1,12 +1,12 @@
-package Finance::Spot::OHLC;
+package Quant::Framework::Spot::OHLC;
 
 =head1 NAME
 
-Finance::Spot::OHLC
+Quant::Framework::Spot::OHLC
 
 =head1 SYNOPSYS
 
-    my $ohlc = Finance::Spot::OHLC->new({
+    my $ohlc = Quant::Framework::Spot::OHLC->new({
         epoch   => 1340871449,
         open    => 2.1,
         high    => 2.2,
