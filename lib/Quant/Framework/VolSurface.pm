@@ -478,7 +478,7 @@ sub _compute_and_set_smile_spread {
             )->linear($day)
     } @{$self->spread_points};
 
-    $self->surface->{$day} = \%smile_spread;
+    $self->surface->{$day}{vol_spread} = \%smile_spread;
 
     return \%smile_spread;
 }
