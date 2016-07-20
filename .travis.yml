@@ -29,4 +29,4 @@ before_install:
     - "cpanm -n Time::Duration::Concise"
     - "cpanm -n MooseX::Types::Moose"
 script:
-  perl Makefile.PL && prove -v t/VolSurface/validator.t
+  perl Makefile.PL && RELEASE_TESTING=1 make test
