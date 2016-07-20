@@ -53,7 +53,7 @@ subtest 'get_volatility for different sought points' => sub {
     qr/exactly one of/i,
         "throws exception when more than on sough points are parsed in get_volatility";
     throws_ok { $surface->get_volatility({strike => undef, days => 1}) } qr/exactly one/i, "throws exception if strike is undef";
-    lives_ok { $surface->get_volatility({strike    => 76.5, days => 1}) } "can get_vol for strike";
+    lives_ok { $surface->get_volatility({strike    => 76.5, days => 1, spot => 101}) } "can get_vol for strike";
     lives_ok { $surface->get_volatility({delta     => 50,   days => 1}) } "can get_vol for delta";
     lives_ok { $surface->get_volatility({moneyness => 100,  days => 1}) } "can get_vol for moneyness";
 };
@@ -657,7 +657,11 @@ sub _get_surface {
         'frxUSDJPY',
         {
             default_interest_rate => 0.5,
-            default_dividend_rate => 0.5
+            default_dividend_rate => 0.5,
+            spot_db_args => +{ 
+                underlying => 'frxUSDJPY',
+                dbh        => undef,
+            },
         });
 
     my $surface = Quant::Framework::VolSurface::Delta->new(
