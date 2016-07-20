@@ -115,7 +115,7 @@ sub create_underlying_config {
         }
     }
 
-    if ( not exists $data->{spot_db_args} ) {
+    if (not exists $data->{spot_db_args}) {
         $data->{spot_db_args} = +{
             underlying => $symbol,
             dbh        => undef,
