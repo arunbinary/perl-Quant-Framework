@@ -66,6 +66,8 @@ WriteMakefile(
         'Digest::MD5'                   => 0,
         'VolSurface::Utils'             => 0,
         'Clone'                         => 0,
+        'MooseX::StrictConstructor'     => 0,
+        'Cache::RedisDB'                => 0,
     },
     dist => {
         COMPRESS => 'gzip -9f',

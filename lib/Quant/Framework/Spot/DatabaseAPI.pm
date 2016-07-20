@@ -30,7 +30,7 @@ has 'historical' => (
 );
 
 has dbh => (
-    is => 'ro',
+    is       => 'ro',
     required => 1,
 );
 
@@ -130,13 +130,13 @@ Find the first tick which breaches a barrier
 sub get_first_tick {
     my ($self, %args) = @_;
 
-    my $underlying = $args{underlying};
+    my $underlying    = $args{underlying};
     my $system_symbol = $args{system_symbol};
-    my $pipsize    = $args{pip_size};
-    my $start_time = Date::Utility->new($args{start_time})->db_timestamp;
-    my $end_time   = Date::Utility->new($args{end_time} // time)->db_timestamp;
-    my @sql_args   = ($system_symbol, $start_time, $end_time);
-    my $sql        = q[SELECT EXTRACT(epoch FROM ts) AS epoch, spot FROM feed.tick] . q[ WHERE underlying = $1 AND ts >= $2 AND ts <= $3];
+    my $pipsize       = $args{pip_size};
+    my $start_time    = Date::Utility->new($args{start_time})->db_timestamp;
+    my $end_time      = Date::Utility->new($args{end_time} // time)->db_timestamp;
+    my @sql_args      = ($system_symbol, $start_time, $end_time);
+    my $sql           = q[SELECT EXTRACT(epoch FROM ts) AS epoch, spot FROM feed.tick] . q[ WHERE underlying = $1 AND ts >= $2 AND ts <= $3];
 
     my $next = 4;
     my @barriers;

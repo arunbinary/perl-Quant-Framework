@@ -270,18 +270,16 @@ has asset_class => (
     isa => 'Str',
 );
 
-
 has use_official_ohlc => (
-    is  => 'ro',
+    is => 'ro',
 );
 
 has spot_db_args => (
-    is  => 'ro',
+    is => 'ro',
 );
 
-
 has pip_size => (
-    is  => 'ro',
+    is      => 'ro',
     default => 0.0001,
 );
 
