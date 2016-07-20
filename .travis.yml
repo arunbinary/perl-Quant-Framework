@@ -4,6 +4,8 @@ perl:
     - "5.22"
     - "5.18"
     - "5.14"
+services:
+    - redis-server
 before_install:
     - git clone git://github.com/travis-perl/helpers ~/travis-perl-helpers
     - source ~/travis-perl-helpers/init

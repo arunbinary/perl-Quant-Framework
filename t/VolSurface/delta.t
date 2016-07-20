@@ -658,10 +658,6 @@ sub _get_surface {
         {
             default_interest_rate => 0.5,
             default_dividend_rate => 0.5,
-            spot_db_args => +{ 
-                underlying => 'frxUSDJPY',
-                dbh        => undef,
-            },
         });
 
     my $surface = Quant::Framework::VolSurface::Delta->new(
