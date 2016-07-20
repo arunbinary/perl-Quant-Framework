@@ -182,7 +182,10 @@ subtest 'Unit test tools.' => sub {
         });
 
     my $module = Test::MockModule->new('Quant::Framework::Spot::DatabaseAPI');
-    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new(1.0); });
+    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new({
+                    epoch => time,
+                    symbol => 'frxEURUSD',
+                    quote => 1.0}); });
     lives_ok { $validator->validate_surface($sample_surface) } 'Our default sample surface is valid.';
 };
 
@@ -220,7 +223,10 @@ subtest _check_age => sub {
         });
 
     my $module = Test::MockModule->new('Quant::Framework::Spot::DatabaseAPI');
-    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new(1.0); });
+    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new({
+                    epoch => time,
+                    symbol => 'frxEURUSD',
+                    quote => 1.0}); });
 
     lives_ok {
         $validator->validate_surface($sample);
