@@ -118,16 +118,6 @@ has uses_implied_rate => (
     isa => 'Maybe[Bool]',
 );
 
-=head2 spot
-
-Current spot price
-
-=cut
-
-has spot => (
-    is => 'ro',
-);
-
 =head2 asset_symbol
 
 Symbol name of the asset (Asset or Currency)
