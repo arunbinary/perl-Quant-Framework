@@ -124,26 +124,27 @@ sub get_volatility {
 
     die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
-    $args->{days} = ($args->{to}->epoch - $args->{from}->epoch) / 86400;
-    delete $args->{to};
-    delete $args->{from};
+    my %internal_args = %{$args};
+    $internal_args{days} = ($internal_args{to}->epoch - $internal_args{from}->epoch) / 86400;
+    delete $internal_args{to};
+    delete $internal_args{from};
 
-    die "Argument 'days' must be positive, non-zero number." if $args->{days} <= 0;
+    die "Argument 'days' must be positive, non-zero number." if $internal_args{days} <= 0;
 
     # we are handling delta seperately because it involves
     # a lot more steps to calculate vol for a delta point
     # on a moneyness surface
-    return $self->_calculate_vol_for_delta($args) if $args->{delta};
+    return $self->_calculate_vol_for_delta(\%internal_args) if $internal_args{delta};
 
     my $moneyness =
-          $args->{strike}
-        ? $args->{strike} / $self->spot_reference * 100
-        : $args->{moneyness};
+          $internal_args{strike}
+        ? $internal_args{strike} / $self->spot_reference * 100
+        : $internal_args{moneyness};
 
     die "Sought point must be a number." if not looks_like_number($moneyness);
     die "Sought point must be a positive number." if $moneyness < 0;
 
-    my $smile = $self->get_smile($args->{days});
+    my $smile = $self->get_smile($internal_args{days});
 
     return $smile->{$moneyness} if $smile->{$moneyness};
 
