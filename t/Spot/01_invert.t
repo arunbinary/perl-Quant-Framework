@@ -7,11 +7,11 @@ use Test::Exception;
 use Test::NoWarnings;
 
 use Date::Utility;
-use Finance::Spot::Tick;
-use Finance::Spot::OHLC;
+use Quant::Framework::Spot::Tick;
+use Quant::Framework::Spot::OHLC;
 
 subtest 'ticks' => sub {
-    my $tick = Finance::Spot::Tick->new(
+    my $tick = Quant::Framework::Spot::Tick->new(
         bid   => 5,
         ask   => 10,
         quote => 7,
@@ -25,7 +25,7 @@ subtest 'ticks' => sub {
 };
 
 subtest 'ohlc' => sub {
-    my $tick = Finance::Spot::OHLC->new(
+    my $tick = Quant::Framework::Spot::OHLC->new(
         open  => 7,
         high  => 10,
         low   => 5,
@@ -41,7 +41,7 @@ subtest 'ohlc' => sub {
 };
 
 subtest 'realtime tick' => sub {
-    my $tick = Finance::Spot::Tick->new(
+    my $tick = Quant::Framework::Spot::Tick->new(
         quote => 8,
         epoch => 1
     );
