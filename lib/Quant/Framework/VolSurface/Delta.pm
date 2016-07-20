@@ -71,7 +71,7 @@ sub _build_variance_table {
         my $epoch = $effective_date->plus_time_interval($tenor . 'd' . $seconds_after_midnight . 's')->epoch;
         foreach my $delta (@{$self->smile_points}) {
             my $volatility = $raw_surface->{$tenor}{smile}{$delta};
-            $table{$epoch}{$delta} = $volatility**2 * $tenor if $volatility;
+            $table{$epoch}{$delta} = $volatility**2 * $tenor if defined $volatility;
         }
     }
 
