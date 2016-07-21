@@ -211,29 +211,27 @@ Get the weight between to given dates.
 
 =cut
 
+# We sliced the weight of a given into 4-hour period for easier manipulation in the future.
+# We might incorporate seasonality into weights.
+# A 4-hour interval for weight calculation is good enough for now.
+my $weight_interval = 4 * 3600;
+
 sub get_weight {
     my ($self, $date1, $date2) = @_;
 
-    my ($date1_epoch, $date2_epoch) = ($date1->epoch, $date2->epoch);
-    my $time_diff = $date2_epoch - $date1_epoch;
-    # We sliced the weight of a given into 4-hour period for easier manipulation in the future.
-    # We might incorporate seasonality into weights.
-    # A 4-hour interval for weight calculation is good enough for now.
-    my $weight_interval = 4 * 3600;
+    my $same_day      = !$date2->days_between($date1);
+    my $diff          = $date2->epoch - $date1->epoch;
+    my $next_interval = Date::Utility->new($date1->epoch - ($date1->epoch % $weight_interval) + $weight_interval);
 
-    my $remainder     = $date1_epoch % $weight_interval;
-    my $next_interval = $date1_epoch - $remainder + $weight_interval;
-
-    my @dates = ($date1_epoch, $next_interval);
-    if ($time_diff <= $weight_interval and $next_interval != $date2_epoch) {
-        push @dates, $date2_epoch;
+    my @dates;
+    if ($same_day) {
+        @dates = ($diff < $weight_interval) ? ($date1->epoch, $date2->epoch) : ($date1->epoch, $self->_break($next_interval, $date2));
     } else {
-        my $start = $next_interval;
-        while ($start < $date2_epoch) {
-            my $to_add = min($date2_epoch - $start, $weight_interval);
-            $start += $to_add;
-            push @dates, $start;
-        }
+        my $next_day = $date1->plus_time_interval('1d')->truncate_to_day;
+        @dates =
+              ($next_interval->epoch < $next_day->epoch)
+            ? ($date1->epoch, $self->_break($next_interval, $date2))
+            : ($date1->epoch, $self->_break($next_day, $date2));
     }
 
     my $calendar     = $self->calendar;
@@ -244,6 +242,21 @@ sub get_weight {
     }
 
     return $total_weight;
+}
+
+sub _break {
+    my ($self, $d1, $d2) = @_;
+
+    my ($e1, $e2) = ($d1->epoch, $d2->epoch);
+    my @dates;
+    while ($e1 <= $e2) {
+        push @dates, $e1;
+        my $diff = $e2 - $e1;
+        last if $diff == 0;
+        $e1 += min($e2 - $e1, $weight_interval);
+    }
+
+    return @dates;
 }
 
 =head2 interpolate

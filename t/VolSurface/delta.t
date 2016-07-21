@@ -369,6 +369,7 @@ subtest 'get weight' => sub {
     is $surface->get_weight($trading_day, $trading_day->plus_time_interval('6h')), 1 / 4, 'correct weight';
     is $surface->get_weight($weekend->plus_time_interval('18h'), $trading_day->plus_time_interval('6h')), (21600 / 86400 * 0.06) + (1 / 4),
         'correct weight for cross day';
+    is $surface->get_weight($weekend->plus_time_interval('23h30m'), $trading_day->plus_time_interval('1h')), ((30*60)/86400 * 0.06) + (1/24), 'less than one hour cross day';
 };
 
 subtest 'get variance' => sub {
