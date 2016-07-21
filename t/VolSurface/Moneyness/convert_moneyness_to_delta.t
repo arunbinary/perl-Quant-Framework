@@ -134,7 +134,7 @@ subtest "convert moneyness to delta" => sub {
         $v->get_volatility({
                 delta => $shuffled_deltas[0],
                 from  => $v->recorded_date,
-                to    => $v->effective_date->plus_time_interval('7d'),
+                to    => $v->recorded_date->plus_time_interval('7d'),
             }
         ),
         $deltas->{$shuffled_deltas[0]},
