@@ -78,27 +78,6 @@ sub _build_variance_table {
     return \%table;
 }
 
-=head2 effective_date
-
-Surfaces roll over at 5pm NY time, so the vols of any surfaces recorded after 5pm NY but
-before GMT midnight are effectively for the next GMT day. This attribute holds this
-effective date.
-
-=cut
-
-has effective_date => (
-    is         => 'ro',
-    isa        => 'Date::Utility',
-    init_arg   => undef,
-    lazy_build => 1,
-);
-
-sub _build_effective_date {
-    my $self = shift;
-
-    return Quant::Framework::VolSurface::Utils->new->effective_date_for($self->recorded_date);
-}
-
 =head2 surface_data
 
 The original surface data.

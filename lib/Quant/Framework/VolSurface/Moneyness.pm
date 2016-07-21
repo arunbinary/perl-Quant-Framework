@@ -20,23 +20,6 @@ use Math::Function::Interpolator;
 use List::MoreUtils qw(indexes);
 use List::Util qw(min max);
 
-=head2 effective_date
-
-Effective date for the volatility surface.
-For moneyness where there's no concept of rollover, the effective_date is the recorded date.
-
-=cut
-
-has effective_date => (
-    is         => 'ro',
-    lazy_build => 1,
-);
-
-sub _build_effective_date {
-    my $self = shift;
-    return $self->recorded_date;
-}
-
 =head2 surface_data
 
 The original surface data.
