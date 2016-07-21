@@ -29,10 +29,21 @@ has 'historical' => (
     default => undef,
 );
 
-has dbh => (
-    is       => 'ro',
+has dbh_getter => (
+    is      => 'ro',
     required => 1,
 );
+
+has dbh => (
+    is       => 'ro',
+    lazy_build => 1,
+);
+
+sub _build_dbh {
+    my $self = shift;
+
+    return $self->dbh_getter->();
+}
 
 has underlying => (
     is       => 'ro',
