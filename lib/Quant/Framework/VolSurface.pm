@@ -469,7 +469,9 @@ sub get_smile_spread {
             #check and add min_vol_spread for shorter term vol_spreads
             next if (not $market_points{$day} or $day >= 30);
             foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
-                $surface->{$day}{vol_spread}{$point} = max($surface->{$day}{vol_spread}{$point}, $self->min_vol_spread);
+                if ($surface->{$day}{vol_spread}{$point} < $self->min_vol_spread) {
+                    $surface->{$day}{vol_spread}{$point} += $self->min_vol_spread;
+                }
             }
         }
     }
