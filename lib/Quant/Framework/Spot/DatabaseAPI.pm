@@ -20,6 +20,7 @@ If any of the functions fail due to any reason it will cause an exception thrown
 
 use Moose;
 use Quant::Framework::Spot::Tick;
+use Quant::Framework::Spot::OHLC;
 use DateTime;
 use Date::Utility;
 
@@ -34,12 +35,7 @@ has dbh_getter => (
     required => 1,
 );
 
-has dbh => (
-    is       => 'ro',
-    lazy_build => 1,
-);
-
-sub _build_dbh {
+sub dbh {
     my $self = shift;
 
     return $self->dbh_getter->();
