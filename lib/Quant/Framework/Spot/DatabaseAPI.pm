@@ -407,7 +407,7 @@ sub ohlc_start_end {
     $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss
         if ($args->{end_time});
 
-    my $statement = $self->dbh->prepare_cached('SELECT * FROM ohlc_start_end($1, $2, $3, $4, $5, $6)', {}, 3);
+    my $statement = $self->dbh->prepare_cached('SELECT * FROM ohlc_start_end($1, $2, $3, $4, $5)', {}, 3);
     $statement->bind_param(1, $self->underlying);
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
@@ -517,14 +517,13 @@ sub ohlc_start_end_with_limit_for_charting {
     $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss
         if ($args->{end_time});
 
-    my $statement = $self->dbh->prepare_cached('SELECT * FROM ohlc_start_end_with_limit_for_charting ($1, $2, $3, $4, $5, $6, $7)', {}, 3);
+    my $statement = $self->dbh->prepare_cached('SELECT * FROM ohlc_start_end_with_limit_for_charting ($1, $2, $3, $4, $5, $6)', {}, 3);
     $statement->bind_param(1, $self->underlying);
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
     $statement->bind_param(4, $end_time);
     $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE':'FALSE');
     $statement->bind_param(6, $args->{limit});
-    $statement->bind_param(7, $self->ohlc_daily_open);
 
     return $self->_query_ohlc($statement);
 }
@@ -562,7 +561,7 @@ sub _query_ticks {
 
     my @ticks;
     if ($statement->execute()) {
-        my ($epoch, $quote, $runbet_quote, $bid, $ask);
+        my ($epoch, $quote, $bid, $ask);
         $statement->bind_col(1, \$epoch);
         $statement->bind_col(2, \$quote);
         $statement->bind_col(3, undef);
@@ -590,10 +589,10 @@ sub _query_single_tick {
     my $statement = shift;
     my $tick_compiled;
     if ($statement->execute()) {
-        my ($epoch, $quote, $runbet_quote, $bid, $ask);
+        my ($epoch, $quote, $bid, $ask);
         $statement->bind_col(1, \$epoch);
         $statement->bind_col(2, \$quote);
-        $statement->bind_col(3, \$runbet_quote);
+        $statement->bind_col(3, undef);
         $statement->bind_col(4, \$bid);
         $statement->bind_col(5, \$ask);
 
