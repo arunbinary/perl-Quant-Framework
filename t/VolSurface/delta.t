@@ -221,42 +221,6 @@ subtest get_market_rr_bf => sub {
     ok(looks_like_number($value->{BF_10}), "BF_10 is a number");
 };
 
-subtest 'Flagging System' => sub {
-    plan tests => 9;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            recorded_date     => Date::Utility->new,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-            save              => 0
-        });
-
-    $surface->set_smile_flag(1, 'first message');
-    $surface->set_smile_flag(1, 'second message');
-    $surface->set_smile_flag(1, 'third message');
-    $surface->set_smile_flag(7, '007');
-
-    my $smile_flag;
-    lives_ok { $smile_flag = $surface->get_smile_flag(1) } 'can get smile flag for a particular day';
-    is(scalar @{$smile_flag}, 3,                "We have three one day flags.");
-    is($smile_flag->[0],      'first message',  "First one day flag is 'first message'");
-    is($smile_flag->[1],      'second message', "Second one day flag is 'second message'");
-    is($smile_flag->[2],      'third message',  "Third one day flag is 'third message'");
-
-    lives_ok { my $smile_flags = $surface->get_smile_flags() } 'can get all smile flags';
-
-    $smile_flag = $surface->get_smile_flag(7);
-
-    is(scalar @{$smile_flag}, 1,     "We have 1 smile flag for 7 days expiry.");
-    is($smile_flag->[0],      '007', "Flag is '007'");
-
-    ok($surface->set_smile_flag('ON', 'ON is bad.'), 'Set smile flag for ON.');
-};
-
 subtest 'object creaion error check' => sub {
     plan tests => 3;
     my $underlying    = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
