@@ -154,9 +154,13 @@ sub get_smile {
         unless looks_like_number($day);
 
     my $surface = $self->surface;
+    my $smile = $surface->{$day}{smile} // $self->_compute_and_set_smile($day);
 
-    return $surface->{$day}{smile} if (exists $surface->{$day} and exists $surface->{$day}{smile});
-    return $self->_compute_and_set_smile($day);
+    if (not $self->_is_valid_volatility_smile($smile)) {
+        $self->validation_error("Invalid smile volatility on smile calculated on day[$day] for " . $self->symbol);
+    }
+
+    return $smile;
 }
 
 sub _compute_and_set_smile {

@@ -173,6 +173,11 @@ sub get_smile {
         $smile->{$delta} = sqrt(($variances_to->{$delta} - $variances_from->{$delta}) / $number_of_days);
     }
 
+    if (not $self->_is_valid_volatility_smile($smile)) {
+        $self->validation_error(
+            "Invalid smile volatility on smile calculated from[" . $from->datetime . "] to[" . $to->datetime . "] for " . $self->symbol);
+    }
+
     return $smile;
 }
 
