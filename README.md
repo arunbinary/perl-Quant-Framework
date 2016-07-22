@@ -493,3 +493,6 @@ my $vol = $surface->get_volatility(
 my $utc21_surface = $surface->generate_surface_for_cutoff('UTC 21:00');
 
 ```
+##Quant::Framework::Spot
+
+This module is responsible for retrieval of spot prices for underlyings.

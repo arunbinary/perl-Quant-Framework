@@ -32,6 +32,11 @@ has feed_api => (
     is => 'ro',
 );
 
+has default_redis_key => (
+    is => 'ro',
+    default => 'COMBINED_REALTIME',
+);
+
 =head1 SYNOPSIS
 
 Used to store/retrieve spot prices into/from local Redis storage
@@ -64,7 +69,7 @@ sub spot_tick {
 
     return $self->tick_at($self->for_date->epoch, {allow_inconsistent => 1}) if $self->for_date;
 
-    my $value = Cache::RedisDB->get('COMBINED_REALTIME', $self->underlying_config->symbol);
+    my $value = Cache::RedisDB->get($self->default_redis_key, $self->underlying_config->symbol);
     my $tick;
     if ($value) {
         $tick = Quant::Framework::Spot::Tick->new($value);
@@ -193,7 +198,7 @@ sub set_spot_tick {
     } else {
         $tick = Quant::Framework::Spot::Tick->new($value);
     }
-    Cache::RedisDB->set_nw('COMBINED_REALTIME', $self->underlying_config->symbol, $value);
+    Cache::RedisDB->set_nw($self->default_redis_key, $self->underlying_config->symbol, $value);
     return $tick;
 }
 
