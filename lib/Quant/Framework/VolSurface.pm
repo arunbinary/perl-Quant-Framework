@@ -618,35 +618,6 @@ sub get_rr_bf_for_smile {
     return $result;
 }
 
-=head2 fetch_historical_surface_date
-
-Get historical vol surface dates going back a given number of historical revisions.
-
-=cut
-
-sub fetch_historical_surface_date {
-    my ($self, $args) = @_;
-    my $back_to = $args->{back_to} || 1;
-
-    my $vdoc = $self->chronicle_reader->get('volatility_surfaces', $self->symbol);
-    my $current_date = $vdoc->{date};
-
-    my @dates;
-    push @dates, $current_date;
-
-    for (2 .. $back_to) {
-        $vdoc = $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, Date::Utility->new($current_date)->epoch - 1);
-
-        last if not $vdoc or not %{$vdoc};
-
-        $current_date = $vdoc->{date};
-
-        push @dates, $current_date;
-    }
-
-    return \@dates;
-}
-
 =head2 is_valid
 
 Does this volatility surface pass our validation.

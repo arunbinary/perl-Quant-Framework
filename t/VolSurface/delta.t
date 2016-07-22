@@ -401,47 +401,6 @@ subtest _is_between => sub {
     ok(!$surface->_is_between(4, [1, 2]), 'returns false if seek if not in between available points');
 };
 
-subtest fetch_historical_surface_date => sub {
-    plan tests => 3;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    # Save a couple of surface so that we have some history.
-    Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            symbol            => 'frxUSDJPY',
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-            recorded_date     => Date::Utility->new->minus_time_interval('5m'),
-        });
-
-    my $surface = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            symbol            => 'frxUSDJPY',
-            recorded_date     => Date::Utility->new,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    my $dates = $surface->fetch_historical_surface_date({
-        back_to => 100,
-    });
-
-    is(ref $dates, 'ARRAY', 'fetch_historical_surface_date returns an array ref.');
-
-    my $contains_non_dates = grep { $_ !~ /^\d{4}\-\d{2}\-\d{2}/ } @{$dates};
-
-    cmp_ok($contains_non_dates, '==', 0, 'All elements of fetch_historical_surface_date are Date::Utilitys.');
-
-    $dates = $surface->fetch_historical_surface_date({
-        back_to => 1,
-    });
-    is(scalar @{$dates}, 1, 'fetch_historical_surface_date going back only one revision.');
-};
-
 sub _get_surface {
     my $override = shift || {};
     my %override = %$override;
