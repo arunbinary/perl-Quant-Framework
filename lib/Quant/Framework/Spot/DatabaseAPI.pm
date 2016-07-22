@@ -6,29 +6,21 @@ Quant::Framework::Spot::DatabaseAPI
 
 =head1 DESCRIPTION
 
-The API class with which we can query feed/otn database.
+The API class which we can query feed database.
 
-This class acts as a facade to the functions available in the DB. That is to say that that actual API is expressed by the functions in the DB. Each function available here has a function with same name inside the db.
+This class acts as a facade to the functions available in the DB. That is to say that that actual API is expressed by the functions in the DB. 
 
-If any of the functions fail due to any reason it will cause an exception thrown straight from DBI/DBD layer.
+Each function available here has a function with same name inside the db.
 
-=head1 VERSION
-
-0.1
+If any of the functions fail due to any reason it will cause an exception thrown straight from DBI layer.
 
 =cut
 
 use Moose;
-use Quant::Framework::Spot::Tick;
-use Quant::Framework::Spot::OHLC;
 use DateTime;
 use Date::Utility;
-
-has 'historical' => (
-    is      => 'ro',
-    isa     => 'Bool',
-    default => undef,
-);
+use Quant::Framework::Spot::Tick;
+use Quant::Framework::Spot::OHLC;
 
 has db_handle => (
     is       => 'ro',
@@ -52,38 +44,38 @@ sub dbh {
     return $self->db_handle;
 }
 
+=hed2 underlying
+
+The underlying symbol for which this API will fetch data
+
+=cut
+
 has underlying => (
     is       => 'ro',
     isa      => 'Str',
     required => 1,
 );
 
+=head2 invert_values
+
+If this argument is set, all tick and OHLC data will have their value inverted. This is useful when we have EURUSD feeds information but
+want to have data for USDEUR underlying.
+
+=cut
+
 has 'invert_values' => (
     is => 'ro',
 );
 
+=head2 use_official_ohlc
+
+In case there are official and non-official OHLC values for an underlying, this flag specifies which type of data we want
+
+=cut
+
 has use_official_ohlc => (
     is => 'ro',
 );
-
-has ohlc_daily_open => (
-    is => 'ro',
-);
-
-has _is_official_query_param => (
-    is         => 'ro',
-    isa        => 'Str',
-    lazy_build => 1,
-);
-
-sub _build__is_official_query_param {
-    my $self = shift;
-
-    my $official = 'FALSE';
-    $official = 'TRUE' if ($self->use_official_ohlc);
-
-    return $official;
-}
 
 =head2 tick_at_for_interval
 
@@ -420,8 +412,7 @@ sub ohlc_start_end {
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
     $statement->bind_param(4, $end_time);
-    $statement->bind_param(5, $self->_is_official_query_param);
-    $statement->bind_param(6, $self->ohlc_daily_open);
+    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE':'FALSE');
 
     return $self->_query_ohlc($statement);
 }
@@ -465,7 +456,7 @@ sub ohlc_daily_list {
     $statement->bind_param(1, $self->underlying);
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
-    $statement->bind_param(4, $self->_is_official_query_param);
+    $statement->bind_param(4, $self->use_official_ohlc ? 'TRUE':'FALSE');
 
     return $self->_query_ohlc($statement);
 }
@@ -531,7 +522,7 @@ sub ohlc_start_end_with_limit_for_charting {
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
     $statement->bind_param(4, $end_time);
-    $statement->bind_param(5, $self->_is_official_query_param);
+    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE':'FALSE');
     $statement->bind_param(6, $args->{limit});
     $statement->bind_param(7, $self->ohlc_daily_open);
 
@@ -574,7 +565,7 @@ sub _query_ticks {
         my ($epoch, $quote, $runbet_quote, $bid, $ask);
         $statement->bind_col(1, \$epoch);
         $statement->bind_col(2, \$quote);
-        $statement->bind_col(3, \$runbet_quote);
+        $statement->bind_col(3, undef);
         $statement->bind_col(4, \$bid);
         $statement->bind_col(5, \$ask);
 
@@ -660,11 +651,11 @@ __PACKAGE__->meta->make_immutable;
 
 =head1 AUTHOR
 
-RMG Company
+Binary.com
 
 =head1 COPYRIGHT
 
-(c) 2012 RMG Technology (Malaysia) Sdn Bhd
+(c) 2016 Binary.com
 
 =cut
 
