@@ -30,7 +30,7 @@ has 'historical' => (
     default => undef,
 );
 
-has dbh_getter => (
+has db_handle => (
     is      => 'ro',
     required => 1,
 );
@@ -38,7 +38,11 @@ has dbh_getter => (
 sub dbh {
     my $self = shift;
 
-    return $self->dbh_getter->();
+    if ( ref($self->db_handle) eq 'CODE' ) {
+        return $self->db_handle->();
+    }
+
+    return $self->db_handle;
 }
 
 has underlying => (
