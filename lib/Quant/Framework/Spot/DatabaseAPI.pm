@@ -31,14 +31,21 @@ has 'historical' => (
 );
 
 has db_handle => (
-    is      => 'ro',
+    is       => 'ro',
     required => 1,
 );
+
+=head2 dbh
+
+Return database handle. If db_handle is a normal reference, it will be used directly.
+If it is a code-ref, it will be invoked to get the database handle.
+
+=cut
 
 sub dbh {
     my $self = shift;
 
-    if ( ref($self->db_handle) eq 'CODE' ) {
+    if (ref($self->db_handle) eq 'CODE') {
         return $self->db_handle->();
     }
 
