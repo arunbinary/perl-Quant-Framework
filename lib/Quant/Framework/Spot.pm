@@ -33,7 +33,7 @@ has feed_api => (
 );
 
 has default_redis_key => (
-    is => 'ro',
+    is      => 'ro',
     default => 'COMBINED_REALTIME',
 );
 

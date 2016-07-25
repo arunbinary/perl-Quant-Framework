@@ -44,7 +44,7 @@ sub dbh {
     return $self->db_handle;
 }
 
-=hed2 underlying
+=head2 underlying
 
 The underlying symbol for which this API will fetch data
 
@@ -412,7 +412,7 @@ sub ohlc_start_end {
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
     $statement->bind_param(4, $end_time);
-    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE':'FALSE');
+    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE' : 'FALSE');
 
     return $self->_query_ohlc($statement);
 }
@@ -456,7 +456,7 @@ sub ohlc_daily_list {
     $statement->bind_param(1, $self->underlying);
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
-    $statement->bind_param(4, $self->use_official_ohlc ? 'TRUE':'FALSE');
+    $statement->bind_param(4, $self->use_official_ohlc ? 'TRUE' : 'FALSE');
 
     return $self->_query_ohlc($statement);
 }
@@ -522,7 +522,7 @@ sub ohlc_start_end_with_limit_for_charting {
     $statement->bind_param(2, $args->{aggregation_period});
     $statement->bind_param(3, $start_time);
     $statement->bind_param(4, $end_time);
-    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE':'FALSE');
+    $statement->bind_param(5, $self->use_official_ohlc ? 'TRUE' : 'FALSE');
     $statement->bind_param(6, $args->{limit});
 
     return $self->_query_ohlc($statement);
