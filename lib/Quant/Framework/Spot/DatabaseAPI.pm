@@ -34,8 +34,8 @@ The prefix used to create name of the table `feed.tick` which will contain spot,
 =cut
 
 has default_prefix => (
-    is       => 'ro',
-    default  => 'feed.',
+    is      => 'ro',
+    default => 'feed.',
 );
 
 =head2 dbh
@@ -157,7 +157,8 @@ sub get_first_tick {
     my $start_time    = Date::Utility->new($args{start_time})->db_timestamp;
     my $end_time      = Date::Utility->new($args{end_time} // time)->db_timestamp;
     my @sql_args      = ($system_symbol, $start_time, $end_time);
-    my $sql           = 'SELECT EXTRACT(epoch FROM ts) AS epoch, spot FROM ' . ( $self->default_prefix // '' ) . 'tick WHERE underlying = $1 AND ts >= $2 AND ts <= $3';
+    my $sql =
+        'SELECT EXTRACT(epoch FROM ts) AS epoch, spot FROM ' . ($self->default_prefix // '') . 'tick WHERE underlying = $1 AND ts >= $2 AND ts <= $3';
 
     my $next = 4;
     my @barriers;
