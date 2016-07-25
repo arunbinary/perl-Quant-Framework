@@ -18,7 +18,6 @@ use Scalar::Util qw( looks_like_number );
 use List::Util qw( min max first );
 use Number::Closest::XS qw(find_closest_numbers_around);
 use Math::Function::Interpolator;
-use Storable qw( dclone );
 
 use Quant::Framework::Utils::Types;
 use Quant::Framework::VolSurface::Utils;
@@ -157,13 +156,13 @@ has surface => (
 sub _build_surface {
     my $self = shift;
 
-    my $surface_data       = dclone($self->surface_data);
+    my %surface_data       = %{$self->surface_data};
     my $expiry_conventions = $self->builder->build_expiry_conventions;
     my $effective_date     = $self->effective_date;
 
     # If the smile's day is given as a tenor, we convert
     # it to a day and add the tenor to the smile:
-    foreach my $maturity (keys %$surface_data) {
+    foreach my $maturity (keys %surface_data) {
         if ($maturity =~ /^(?:ON|\d{1,2}[WMY])$/) {
             my $vol_expiry_date = $expiry_conventions->vol_expiry_date({
                 from => $effective_date,
@@ -171,14 +170,14 @@ sub _build_surface {
             });
             my $day = $vol_expiry_date->days_between($effective_date);
 
-            $surface_data->{$day} = delete $surface_data->{$maturity};
-            $surface_data->{$day}{tenor} = $maturity;
+            $surface_data{$day} = delete $surface_data{$maturity};
+            $surface_data{$day}{tenor} = $maturity;
         } elsif ($maturity !~ /^\d+$/) {
             warn('Unknown tenor found on volatility surface for ' . $self->symbol);
         }
     }
 
-    return $surface_data;
+    return \%surface_data;
 }
 
 =head1 ATTRIBUTES
@@ -891,7 +890,7 @@ sub clone {
     }
 
     if (not exists $clone_args{surface_data}) {
-        $clone_args{surface_data} = dclone($self->surface_data);
+        $clone_args{surface_data} = {%{$self->surface_data}};
     }
 
     return $self->meta->name->new(\%clone_args);
