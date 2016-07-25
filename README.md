@@ -595,3 +595,4 @@ You can call `set_spot_tick` to set tick for an underlying (This should normally
 When requesting for historical tick, database query is used through `DatabaseAPI`. This module expects `feed_api` parameter which is used for this purpose. This will be an instance of `Quant::Framework::Spot::DatabaseAPI` which you can create according to instructions mentioned before.`feed_api` is used to interact with Feed database and extract historical spot ticks. Even if you don't need historical spot prices, you will need to pass this argument because it will be used in the case RedisDB lacks the required information.  
 
 There is also two data-only modules (`Quant::Framework::Spot::Tick` and `Quant::Framework::OHLC`) which hold information regarding a tick or a OHLC bar. Normally you don't need to create instances of these modules. They are return value of spot-related functions.
+
