@@ -1327,9 +1327,10 @@ sub weight_on {
     state %cache;
     state $cache_init_time = time;
 
+    my $current_time = time;
     # clears cache after 5 minutes
-    if (time - $cache_init_time > 300) {
-        $cache_init_time = time;
+    if ($current_time - $cache_init_time > 300) {
+        $cache_init_time = $current_time;
         %cache           = ();
     }
 
