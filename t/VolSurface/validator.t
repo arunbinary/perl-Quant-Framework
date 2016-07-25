@@ -228,11 +228,12 @@ subtest '_validate_structure' => sub {
     $sample = _sample_surface({
             surface => {
                 1  => {smile => {50 => 0.2}},
+                3  => {smile => {50 => 0.2}},
                 -1 => {}}});
     warning_like {
         ok !$sample->is_valid, 'invalid if term is negative';
     }
-    qr/Unknown tenor found on volatility/, 'Unknown tenors';
+    qr/Unknown tenor/, 'Unknown tenors';
     like($sample->validation_error, qr/Not a positive integer/, 'Maturity on surface is negative.');
 
     $sample = Quant::Framework::Utils::Test::create_doc(
