@@ -495,11 +495,11 @@ my $utc21_surface = $surface->generate_surface_for_cutoff('UTC 21:00');
 ```
 ##Quant::Framework::Spot
 
-This module is responsible for storage and retrieval of spot prices for underlyings. The spot price is stored in local Redis for fast retrieval. For historical data, a database handle is expected as input which will be used to fetch historical spot and OHLC values. 
+This module is responsible for storage and retrieval of spot prices for different underlyings. The spot price is stored in local Redis for fast retrieval. For historical data, a database handle is expected as input which will be used to fetch historical spot and OHLC values. 
 
 There are some naming conventions in this module which user of the module needs to obey in order to use provided utilities. These conventions determine naming of tables and functions in the database. The tables and their structure are designed to match general layout of database tables which store ticks. For example a table `feed.tick` is expected to be in the database where it contains underlying name, timestamp and spot value. 
 
-If you don't have a table with the same name in your DB system, you can easily create a view with the expected name `tick`. If your DBMS does not support schemas or you are not using this feature, you can replace `default_prefix` argument in the `Quant::Framework::Spot::DatabaseAPI` with your desired value. In order to do this, you will need to setup an instance of `underlying_config`, pass it to `Builder` module and then call it's `build_feed_api` method. For example:
+If you don't have a table with the same name in your DB system, you can easily create a view with the expected name and structure `tick`. If your DBMS does not support schemas or you are not using this feature, you can replace `default_prefix` argument in the `Quant::Framework::Spot::DatabaseAPI` with your desired value. In order to do this, you will need to setup an instance of `underlying_config`, pass it to `Builder` module and then call it's `build_feed_api` method. For example:
 
 ```
 my $db_args = { handle => $dbh, underlying => 'frxEURUSD', default_prefix => undef };
@@ -511,7 +511,6 @@ my $database_api = $builder->build_feed_api;
 ```
 
 You can also create the `DatabaseAPI` module directly. For example:
-
 
 ```
 use Quant::Framework::Spot::DatabaseAPI;
@@ -526,8 +525,8 @@ $db_api = Quant::Framework::Spot::DatabaseAPI->new({
 
 `dbh` is a handle to the database. You can pass a db handler or a sub-routine which will return handle.
 
-If `inverted` argument is set, all tick values of this module will be inverted (1/x instead of x). This is
-useful when you have quotes for EURUSD but want to read values for USDEUR.
+If `inverted` argument is set, all tick values returned from this module will be inverted (`1/x` instead of `x`). This is
+useful when you have quotes for `EURUSD` but want to read values for `USDEUR`.
 
 This module contains some utility methods, most important of which are, `tick_at` and `ohlc_start_end`.
 
@@ -545,20 +544,18 @@ my $spot = $db->tick_at({
 my $ohlc = $db->ohlc_start_end({
     start_time  => $start_ts,
     end_time    => $end_ts,
-    aggregation_period = $num_seconds_per_ohlc_instance
+    aggregation_period => $num_seconds_per_ohlc_instance
 });
 
 my @ohlc_bars = @{$ohlc};
-
 ```
 
 The first call above, request for latest tick at given time (`$timestamp`) and the second one askas
 for daily OHLC values at given time.
 
 `allow_inconsistent` parameters determines how the case should be handled when there is no tick at the 
-exact requested timestamp. If this parameter is 1, then the code will return tick at or before the given timestamp.
-If it is passed as 0, the code will return any tick at or after given timestamp.
-
+exact requested timestamp. If value of this parameter is `1`, then the code will return tick at or before the given timestamp.
+If it is passed as `0`, the code will return any tick at or after given timestamp.
 
 To work with the Spot module:
 
@@ -582,13 +579,19 @@ Note that in above sample, `for_date` is optional and if missing means we need l
 The `calendar` argument is an instance of `Quant::Framework::TradingCalendar` which will be used to calculate
 trading times for cases where `use_official_ohlc` is enabled. 
 
+You can also instantiate `Spot` using `Builder`: 
+
+```
+my $builder = Quant::Framework::Utils::Builder->new(chronicle_reader => $c_r, underlying_config => underlying_config);
+
+my $spot_source = $builder->build_spot;
+```
+
 There are some utility methods in `Quant::Framework::Spot` to help you get spot information (e.g. `spot_quote`, `spot_time`, `spot_age`).
-When there is a request for latest spot tick (`spot_tick` method), local Redis cache is queried for a pattern like `PREFIX::frxEURUSD` to retrieve tick data, where PREFIX is the value of `default_redis_key` field in the `Spot` module.
+When there is a request for latest spot tick (`spot_tick` method), local Redis cache is queried for a pattern like `PREFIX::frxEURUSD` to retrieve tick data, where `PREFIX` is the value of `default_redis_key` field in the `Spot` module. 
 
-You can call `set_spot_tick` to set tick for an underlying (This should normally be called when a new tick is received in the system). When requesting for historical tick, database query is used. This module expects `feed_api` parameter which is used for this purpose. This will be an instance of `Quant::Framework::Spot::DatabaseAPI` which you can create according to instructions mentioned before.
+You can call `set_spot_tick` to set tick for an underlying (This should normally be called when a new tick is received in the system). 
 
-`feed_api` is used to interact with Feed database and extract historical spot ticks. Even if you don't
-need historical spot prices, you will need to pass this argument because it will be used in the case
-RedisDB lacks the required information.  
+When requesting for historical tick, database query is used through `DatabaseAPI`. This module expects `feed_api` parameter which is used for this purpose. This will be an instance of `Quant::Framework::Spot::DatabaseAPI` which you can create according to instructions mentioned before.`feed_api` is used to interact with Feed database and extract historical spot ticks. Even if you don't need historical spot prices, you will need to pass this argument because it will be used in the case RedisDB lacks the required information.  
 
-This repository also includes two data-only modules (`Quant::Framework::Spot::Tick` and `Quant::Framework::OHLC`) which hold information regarding a tick or a OHLC bar.
+There is also two data-only modules (`Quant::Framework::Spot::Tick` and `Quant::Framework::OHLC`) which hold information regarding a tick or a OHLC bar. Normally you don't need to create instances of these modules. They are return value of spot-related functions.
