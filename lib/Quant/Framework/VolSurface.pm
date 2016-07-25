@@ -173,7 +173,8 @@ sub _build_surface {
             $surface_data{$day} = delete $surface_data{$maturity};
             $surface_data{$day}{tenor} = $maturity;
         } elsif ($maturity !~ /^\d+$/) {
-            warn('Unknown tenor found on volatility surface for ' . $self->symbol);
+            warn("Unknown tenor[$maturity] found on volatility surface for " . $self->symbol);
+            delete $surface_data{$maturity};
         }
     }
 
@@ -392,6 +393,7 @@ around BUILDARGS => sub {
         die('Must pass both "surface_data" and "recorded_date" if passing either.') if (not($args{surface_data} and $args{recorded_date}));
     }
 
+    # symbol will be built from underlying_config
     delete $args{symbol};
 
     return $class->$orig(%args);
