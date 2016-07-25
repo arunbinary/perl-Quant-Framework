@@ -461,10 +461,9 @@ sub get_smile_spread {
     # if a surface has a minimum volatility spread that needs to be applied,
     # we will do the check.
     if ($self->can('min_vol_spread')) {
-        my %market_points = map { $_ => 1 } @{$self->original_term_for_spread};
         foreach my $day (keys %{$surface}) {
             #check and add min_vol_spread for shorter term vol_spreads
-            next if (not $market_points{$day} or $day >= 30);
+            next if (not exists $surface->{$day}{vol_spread} or $day >= 30);
             foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
                 if ($surface->{$day}{vol_spread}{$point} < $self->min_vol_spread) {
                     $surface->{$day}{vol_spread}{$point} += $self->min_vol_spread;
@@ -473,7 +472,7 @@ sub get_smile_spread {
         }
     }
 
-    return $surface->{$day}{vol_spread} if (exists $surface->{$day} and exists $surface->{$day}{vol_spread});
+    return $surface->{$day}{vol_spread} if (exists $surface->{$day}{vol_spread});
     return $self->_compute_and_set_smile_spread($day);
 }
 
