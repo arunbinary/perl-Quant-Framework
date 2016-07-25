@@ -364,8 +364,6 @@ subtest 'surface build' => sub {
     }
     qr/Unknown tenor/, 'throws warning if tenor is in unexpected format.';
 
-    ok !$s->surface->{unknown}, 'delete messed up smile';
-
     $surface_data = {
         '1W' => {
             smile => {
