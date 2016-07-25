@@ -23,9 +23,8 @@ use Number::Closest::XS qw(find_closest_numbers_around);
 use List::Util qw(min);
 use List::MoreUtils qw(any);
 use Date::Utility;
-use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness );
+use VolSurface::Utils qw( get_delta_for_strike get_strike_for_moneyness get_strike_for_spot_delta );
 use Math::Function::Interpolator;
-use VolSurface::Utils qw( get_strike_for_spot_delta );
 
 =head1 ATTRIBUTES
 
@@ -93,7 +92,8 @@ sub _build_surface_data {
     my $self = shift;
 
     # For backward compatibility
-    my $surface = $self->document->{surface} // $self->document->{surfaces}{'New York 10:00'} // {};
+    my $surface = $self->document->{surface} // $self->document->{surfaces}{'New York 10:00'};
+    die('surface data not found for ' . $self->symbol) unless $surface;
 
     return $self->_clean($surface);
 }

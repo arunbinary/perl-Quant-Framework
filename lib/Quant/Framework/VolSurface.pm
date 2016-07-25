@@ -81,13 +81,9 @@ sub _build_document {
     my $document = $self->chronicle_reader->get('volatility_surfaces', $self->symbol);
     if ($self->for_date and $self->for_date->epoch < Date::Utility->new($document->{date})->epoch) {
         $document = $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, $self->for_date->epoch);
-
-        # This works around a problem with Volatility surfaces and negative dates to expiry.
-        # We have to use the oldest available surface.. and we don't really know when it
-        # was relative to where we are now.. so just say it's from the requested day.
-        # We do not allow saving of historical surfaces, so this should be fine.
-        $document //= {};
     }
+
+    die('Document is undefined for ' . $self->symbol) unless $document;
 
     return $document;
 }

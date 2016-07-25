@@ -18,7 +18,7 @@ subtest 'document fetching' => sub {
         underlying_config => $uc,
         chronicle_reader  => $chronicle_r,
     });
-    ok !$s->document, 'document is undefined if nothing is there';
+    throws_ok {$s->document} qr/Document is undefined/, 'throws error if document is undefined.';
 
     my $older_date = $now->minus_time_interval('1s');
     my $d1         = {1 => {smile => {50 => 0.1}}};
@@ -385,6 +385,19 @@ subtest 'surface build' => sub {
 
     is $s->surface->{7}->{smile}->{50}, 0.1, 'surface has \'7\' in the term structure.';
     ok $s->surface_data->{'1W'}, 'surface_data is untouched.';
+};
+
+subtest 'surface_data build' => sub {
+    my $s = Quant::Framework::VolSurface::Delta->new({
+        underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY'),
+        document => {},
+        });
+    throws_ok {$s->surface_data} qr/surface data not found/, 'throws error if surface data not found';
+    $s = Quant::Framework::VolSurface::Moneyness->new({
+        underlying_config => Quant::Framework::Utils::Test::create_underlying_config('SPC'),
+        document => {},
+        });
+    throws_ok {$s->surface_data} qr/surface data not found/, 'throws error if surface data not found';
 };
 
 done_testing();

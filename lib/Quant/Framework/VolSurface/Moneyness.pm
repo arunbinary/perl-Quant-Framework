@@ -35,8 +35,9 @@ sub _build_surface_data {
     my $self = shift;
 
     # For backward compatibility
-    my $date = $self->for_date // Date::Utility->new;
-    my $surface = $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm} // {};
+    my $date    = $self->for_date            // Date::Utility->new;
+    my $surface = $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm};
+    die('surface data not found for ' . $self->symbol) unless $surface;
 
     return $self->_clean($surface);
 }
