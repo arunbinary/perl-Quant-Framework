@@ -278,9 +278,4 @@ has spot_db_args => (
     is => 'ro',
 );
 
-has pip_size => (
-    is      => 'ro',
-    default => 0.0001,
-);
-
 1;

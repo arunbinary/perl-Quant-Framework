@@ -22,6 +22,7 @@ has for_date => (
 
 has underlying_config => (
     is => 'ro',
+    required => 1,
 );
 
 has calendar => (
@@ -103,6 +104,9 @@ This method receives a timestamp and an option for inconsistency.
 Returns the tick for current symbol at the given time. If inconssitency is enabled
 and there is no tick at that moment, the latest tick before that time is 
 returned.
+`allow_inconsistent` parameters determines how the case should be handled when there is no tick at the 
+exact requested timestamp. If value of this parameter is `1`, then the code will return tick at or before the given timestamp.
+If it is passed as `0`, the code will return any tick at or after given timestamp.
 
 =cut
 
@@ -215,29 +219,9 @@ sub spot_quote {
     my $last_tick = $self->spot_tick;
     $last_price = $last_tick->quote if $last_tick;
 
-    return $self->pipsized_value($last_price);
+    return $last_price;
 }
 
-=head2 pipsized_value
-
-Resize a value to conform to the pip size of this underlying
-
-=cut
-
-sub pipsized_value {
-    my ($self, $value, $custom) = @_;
-
-    my $orig_display_decimals = log(1 / $self->underlying_config->pip_size) / log(10);
-
-    my ($pip_size, $display_decimals) =
-          ($custom)
-        ? ($custom, log(1 / $custom) / log(10))
-        : ($self->underlying_config->pip_size, $orig_display_decimals);
-    if (defined $value and looks_like_number($value)) {
-        $value = sprintf '%.' . $display_decimals . 'f', $value;
-    }
-    return $value;
-}
 
 =head2 spot_time
 
