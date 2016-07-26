@@ -90,9 +90,4 @@ __PACKAGE__->meta->make_immutable;
 
 1;
 
-=head1 LICENSE AND COPYRIGHT
-
-Copyright 2012 RMG Technology (M) Sdn Bhd
-
-=cut
 

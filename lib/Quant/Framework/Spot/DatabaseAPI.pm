@@ -660,14 +660,4 @@ sub _query_ohlc {
 no Moose;
 __PACKAGE__->meta->make_immutable;
 
-=head1 AUTHOR
-
-Binary.com
-
-=head1 COPYRIGHT
-
-(c) 2016 Binary.com
-
-=cut
-
 1;
