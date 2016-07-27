@@ -314,6 +314,7 @@ sub tick_after {
 
 get ticks from feed db filtered by
     - start_time, end_time, limit - all ticks between <start_time> and <end_time> and limit to <limit> entries.
+This method is appropriate for charting applications where a limited number of prices are going to be displayed.
 
 Returns
      ArrayRef[Quant::Framework::Spot::Tick]
