@@ -596,3 +596,20 @@ When requesting for historical tick, database query is used through `DatabaseAPI
 
 There is also two data-only modules (`Quant::Framework::Spot::Tick` and `Quant::Framework::OHLC`) which hold information regarding a tick or a OHLC bar. Normally you don't need to create instances of these modules. They are return value of spot-related functions.
 
+###DB requirements for Quant::Framework::Spot
+Spot module assumes existence of a PostgreSQL database with below specifications:
+
+- `feed.tick` table
+- `tick_at_for_interval(underlying, start, end, interval)`
+- `ticks_start_end(underlying, start, end)`
+- `ticks_start_limit(underlying, start, limit)`
+- `ticks_end_limit(underlying, end, limit)`
+- `tick_at_or_before(underlying, timestamp)`
+- `consistent_tick_at_or_before(underlying, timestamp)`
+- `tick_after(underlying, time)`
+- `ticks_start_end_with_limit_for_charting(underlying, start, end, limit)`
+- `ohlc_start_end(underlying, period, start, end, official)`
+- `ohlc_daily_list(underlying, start, end , official)`
+- `combined_realtime_tick(underlying, start, end)`
+- `ohlc_start_end_with_limit_for_charting(underlying, period, start, end, official, limit)`
+- 
