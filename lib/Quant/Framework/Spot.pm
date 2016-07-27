@@ -60,8 +60,11 @@ If you omit for_date parameter, you will fetch latest spot price.
 
 =head2 $self->spot_tick
 
-Get last tick value for symbol from Redis. It will rebuild value from
+Get last tick value for symbol from Redis or feed database. It will rebuild value from
 feed db if it is not present in cache.
+
+This method will fall back to database if no data is found in Redis cache. In this case,
+Redis will be populated with the data read from db.
 
 =cut
 
@@ -225,7 +228,7 @@ sub spot_quote {
 
 =head2 spot_time
 
-The epoch timestamp of the latest recorded tick in the .realtime file or undef if we can't find one.
+The epoch timestamp of the latest recorded tick in the system
 
 =cut
 

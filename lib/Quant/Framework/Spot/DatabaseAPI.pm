@@ -127,12 +127,10 @@ sub ticks_start_end {
     my $self = shift;
     my $args = shift;
 
-    my $start_time;
-    my $end_time;
-    $start_time = Date::Utility->new($args->{start_time})->datetime_yyyymmdd_hhmmss
-        if ($args->{start_time});
-    $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss
-        if ($args->{end_time});
+    die "Both start_time and end_time are required in ticks_start_end" if not $args->{start_time} or not $args->{end_time};
+
+    my $start_time = Date::Utility->new($args->{start_time})->datetime_yyyymmdd_hhmmss;
+    my $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss;
 
     my $statement = $self->dbh->prepare_cached('SELECT * FROM ticks_start_end($1, $2, $3)', {}, 3);
     $statement->bind_param(1, $self->underlying);
@@ -471,45 +469,6 @@ sub ohlc_daily_list {
     $statement->bind_param(4, $self->use_official_ohlc ? 'TRUE' : 'FALSE');
 
     return $self->_query_ohlc($statement);
-}
-
-=head2 combined_realtime_tick
-
-Returns combined tick for the given start/end time period.
-
-=cut
-
-sub combined_realtime_tick {
-    my $self = shift;
-    my $args = shift;
-
-    my $start_time;
-    my $end_time;
-    $start_time = Date::Utility->new($args->{start_time})->datetime_yyyymmdd_hhmmss
-        if ($args->{start_time});
-    $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss
-        if ($args->{end_time});
-
-    my $sth = $self->dbh->prepare_cached('SELECT * FROM combined_realtime_tick ($1, $2, $3)', {}, 3);
-    $sth->bind_param(1, $self->underlying);
-    $sth->bind_param(2, $start_time);
-    $sth->bind_param(3, $end_time);
-
-    my $data;
-    if ($sth->execute()) {
-        $data = $sth->fetchrow_hashref();
-    }
-
-    return unless $data->{epoch};
-
-    my $tick = Quant::Framework::Spot::Tick->new(
-        quote  => $data->{spot},
-        epoch  => $data->{epoch},
-        symbol => $self->underlying
-    );
-
-    $tick->invert_values if ($self->invert_values);
-    return $tick;
 }
 
 =head2 ohlc_start_end_with_limit_for_charting

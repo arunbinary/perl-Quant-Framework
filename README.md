@@ -495,7 +495,7 @@ my $utc21_surface = $surface->generate_surface_for_cutoff('UTC 21:00');
 ```
 ##Quant::Framework::Spot
 
-This module is responsible for storage and retrieval of spot prices for different underlyings. The spot price is stored in local Redis for fast retrieval. For historical data, a database handle is expected as input which will be used to fetch historical spot and OHLC values. 
+This module is responsible for storage and retrieval of spot prices for different underlyings. The spot price is stored in local Redis (on default port) for fast retrieval. For historical data, a database handle is expected as input which will be used to fetch historical spot and OHLC values. 
 
 There are some naming conventions in this module which user of the module needs to obey in order to use provided utilities. These conventions determine naming of tables and functions in the database. The tables and their structure are designed to match general layout of database tables which store ticks. For example a table `feed.tick` is expected to be in the database where it contains underlying name, timestamp and spot value. 
 
