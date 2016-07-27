@@ -599,17 +599,17 @@ There is also two data-only modules (`Quant::Framework::Spot::Tick` and `Quant::
 ###DB requirements for Quant::Framework::Spot
 Spot module assumes existence of a PostgreSQL database with below specifications:
 
-- `feed.tick` table
-- `tick_at_for_interval(underlying, start, end, interval)`
-- `ticks_start_end(underlying, start, end)`
-- `ticks_start_limit(underlying, start, limit)`
-- `ticks_end_limit(underlying, end, limit)`
-- `tick_at_or_before(underlying, timestamp)`
-- `consistent_tick_at_or_before(underlying, timestamp)`
-- `tick_after(underlying, time)`
-- `ticks_start_end_with_limit_for_charting(underlying, start, end, limit)`
-- `ohlc_start_end(underlying, period, start, end, official)`
-- `ohlc_daily_list(underlying, start, end , official)`
-- `combined_realtime_tick(underlying, start, end)`
-- `ohlc_start_end_with_limit_for_charting(underlying, period, start, end, official, limit)`
+- `feed.tick`: This table contains (underlying, ts, quote) columns indicating underlying symbol, timestamp and correcponding spot value at the time of `ts`.
+- `tick_at_for_interval(underlying, start, end, interval)`: This function will returns list of ticks at the given period (start, end). <>
+- `ticks_start_end(underlying, start, end)`: This function will return list of ticks inside the given period. 
+- `ticks_start_limit(underlying, start, limit)`: This function returns `limit` number of ticks starting from `start` time.
+- `ticks_end_limit(underlying, end, limit)`: This function will return last `limit` number of ticks ending at `end` time.
+- `tick_at_or_before(underlying, timestamp)`: This function will return last tick before given timestamp.
+- `consistent_tick_at_or_before(underlying, timestamp)`: This function will return a tick at or after given timestamp.
+- `tick_after(underlying, time)`: This will return first tick after given time.
+- `ticks_start_end_with_limit_for_charting(underlying, start, end, limit)`: This will return a list of at most `limit` latest ticks inside (start, end) period.
+- `ohlc_start_end(underlying, period, start, end, official)`: This will returns a list of OHLC (Open, High, Low, Close) values for the market inside (start, end) period, aggregating `period` minutes into one OHLC data. If `official` parameter is set, it will lookup for official OHLC values.
+- `ohlc_daily_list(underlying, start, end , official)`: This will return daily OHLC values inside given period (start, end).
+- `combined_realtime_tick(underlying, start, end)`:
+- `ohlc_start_end_with_limit_for_charting(underlying, period, start, end, official, limit)`: This function is same as `ohlc_start_end` with the exception that it accepts a `limit` parameter which can be useful for charting purposes. This parameter will limit number of output items.
 - 
