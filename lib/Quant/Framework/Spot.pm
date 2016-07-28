@@ -35,7 +35,7 @@ has feed_api => (
 
 has default_redis_key => (
     is      => 'ro',
-    default => 'QUOTES',
+    default => 'QUOTE',
 );
 
 =head1 SYNOPSIS
