@@ -727,7 +727,7 @@ sub _is_valid_volatility_smile {
 sub _validate_identical_surface {
     my $self = shift;
 
-    my $existing = __PACKAGE__->new({
+    my $existing = $self->new({
         underlying_config => $self->underlying_config,
         chronicle_reader  => $self->chronicle_reader,
         chronicle_writer  => $self->chronicle_writer,
@@ -761,7 +761,7 @@ sub _validate_identical_surface {
 sub _validate_volatility_jumps {
     my $self = shift;
 
-    my $existing = __PACKAGE__->new({
+    my $existing = $self->new({
         underlying_config => $self->underlying_config,
         chronicle_reader  => $self->chronicle_reader,
         chronicle_writer  => $self->chronicle_writer,
@@ -882,7 +882,7 @@ sub clone {
         $clone_args{surface_data} = {%{$self->surface_data}};
     }
 
-    return __PACKAGE__->new(\%clone_args);
+    return $self->new(\%clone_args);
 }
 
 sub _clean {
