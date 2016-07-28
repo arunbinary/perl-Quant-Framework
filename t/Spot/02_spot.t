@@ -20,7 +20,7 @@ my $spot_source = Quant::Framework::Spot->new({
     });
 
 #initialize spot cache directly
-Cache::RedisDB->set_nw('COMBINED_REALTIME', 'frxUSDJPY', Quant::Framework::Spot::Tick->new({
+Cache::RedisDB->set_nw('QUOTE', 'frxUSDJPY', Quant::Framework::Spot::Tick->new({
             quote => 150.192,
             epoch => 1467614365,
         })->as_hash);
@@ -41,7 +41,7 @@ $spot_source->set_spot_tick(Quant::Framework::Spot::Tick->new({
 
 is $spot_source->spot_tick->quote, '119.102', "correcty saved spot tick";
 is $spot_source->spot_tick->epoch, 134, "correct tick epoch after retrieval";
-is $spot_source->spot_quote, '119.1020', "correct spot quote";
+is $spot_source->spot_quote, '119.102', "correct spot quote";
 is $spot_source->spot_time, 134, "correct spot epoch";
 is $spot_source->spot_age, time - 134, "correct spot age";
 
