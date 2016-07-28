@@ -640,6 +640,64 @@ subtest 'Moneyness surfaces' => sub {
     like($surface->validation_error, qr/Admissible check 2/, 'Convexity Check');
 };
 
+subtest 'big difference' => sub {
+    Quant::Framework::Utils::Test::create_doc(
+        'volsurface_delta',
+        {
+            symbol            => 'frxEURUSD',
+            underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD'),
+            surface           => {
+                7 => {
+                    smile => {
+                        25 => 0.78,
+                        50 => 0.67,
+                        75 => 0.61,
+                    },
+                    vol_spread => {50 => 0.03},
+                },
+                14 => {
+                    smile => {
+                        25 => 0.78,
+                        50 => 0.71,
+                        75 => 0.62,
+                    },
+                    vol_spread => {50 => 0.03},
+                },
+            },
+            recorded_date    => Date::Utility->new,
+            chronicle_reader => $chronicle_r,
+            chronicle_writer => $chronicle_w
+        });
+
+    my $new_data = {
+        7 => {
+            smile => {
+                25 => 0.78,
+                50 => 0.67,
+                75 => 0.61,
+            },
+            vol_spread => {50 => 0.03},
+        },
+        14 => {
+            smile => {
+                25 => 0.78,
+                50 => 0.71,
+                75 => 2,
+            },
+            vol_spread => {50 => 0.03},
+        },
+    };
+    my $surface = Quant::Framework::VolSurface::Delta->new(
+        underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD'),
+        surface           => $new_data,
+        recorded_date     => Date::Utility->new,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w
+    );
+    ok !$surface->is_valid, 'invalid';
+    like($surface->validation_error, qr/Big difference found on term\[14\] for point \[75\]/, 'Convexity Check');
+};
+
 sub _sample_surface {
     my $args = shift || {};
 

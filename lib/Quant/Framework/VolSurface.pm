@@ -775,7 +775,7 @@ sub _validate_volatility_jumps {
     my $type   = $self->type;
 
     for (my $i = 1; $i <= $#new_expiry; $i++) {
-        for (my $j = 0; $j < $#points; $j++) {
+        for (my $j = 0; $j <= $#points; $j++) {
             my $sought_point = $points[$j];
             my $new_vol      = $self->get_volatility({
                 $type => $sought_point,
