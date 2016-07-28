@@ -625,9 +625,12 @@ sub is_valid {
 
     my @validation_methods = $self->_validation_methods;
 
-    while (not $self->validation_error and my $method = shift @validation_methods) {
-        try { $self->$method } catch { $self->validation_error($_) };
+    try {
+        $self->$_ for ($self->_validation_methods);
     }
+    catch {
+        $self->validation_error($_);
+    };
 
     return !$self->validation_error;
 }
@@ -724,7 +727,7 @@ sub _is_valid_volatility_smile {
 sub _validate_identical_surface {
     my $self = shift;
 
-    my $existing = $self->meta->name->new({
+    my $existing = __PACKAGE__->new({
         underlying_config => $self->underlying_config,
         chronicle_reader  => $self->chronicle_reader,
         chronicle_writer  => $self->chronicle_writer,
@@ -758,7 +761,7 @@ sub _validate_identical_surface {
 sub _validate_volatility_jumps {
     my $self = shift;
 
-    my $existing = $self->meta->name->new({
+    my $existing = __PACKAGE__->new({
         underlying_config => $self->underlying_config,
         chronicle_reader  => $self->chronicle_reader,
         chronicle_writer  => $self->chronicle_writer,
@@ -771,7 +774,7 @@ sub _validate_volatility_jumps {
     my @points = @{$self->smile_points};
     my $type   = $self->type;
 
-    for (my $i = 1; $i < $#new_expiry; $i++) {
+    for (my $i = 1; $i <= $#new_expiry; $i++) {
         for (my $j = 0; $j < $#points; $j++) {
             my $sought_point = $points[$j];
             my $new_vol      = $self->get_volatility({
@@ -784,9 +787,8 @@ sub _validate_volatility_jumps {
                 from  => $existing->recorded_date,
                 to    => $existing_expiry[$i],
             });
-            my $diff            = abs($new_vol - $existing_vol);
-            my $percentage_diff = $diff / $existing_vol * 100;
-            if ($diff > 0.03 and $percentage_diff > 100) {
+            my $diff = abs($new_vol - $existing_vol);
+            if ($diff > 0.03 and $diff > $existing_vol) {
                 die(      'Big difference found on term['
                         . $terms[$i - 1]
                         . '] for point ['
@@ -890,7 +892,7 @@ sub clone {
         $clone_args{surface_data} = {%{$self->surface_data}};
     }
 
-    return $self->meta->name->new(\%clone_args);
+    return __PACKAGE__->new(\%clone_args);
 }
 
 sub _clean {
