@@ -789,17 +789,7 @@ sub _validate_volatility_jumps {
             });
             my $diff = abs($new_vol - $existing_vol);
             if ($diff > 0.03 and $diff > $existing_vol) {
-                die(      'Big difference found on term['
-                        . $terms[$i - 1]
-                        . '] for point ['
-                        . $sought_point
-                        . '] with absolute diff ['
-                        . $diff
-                        . '] percentage diff ['
-                        . $percentage_diff
-                        . '] for '
-                        . $self->symbol
-                        . '.');
+                die('Big difference found on term[' . $terms[$i - 1] . '] for point [' . $sought_point . '] with absolute diff [' . $diff . '].');
             }
         }
     }
