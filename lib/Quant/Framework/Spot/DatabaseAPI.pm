@@ -130,7 +130,7 @@ sub ticks_start_end {
     die "Both start_time and end_time are required in ticks_start_end" if not $args->{start_time} or not $args->{end_time};
 
     my $start_time = Date::Utility->new($args->{start_time})->datetime_yyyymmdd_hhmmss;
-    my $end_time = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss;
+    my $end_time   = Date::Utility->new($args->{end_time})->datetime_yyyymmdd_hhmmss;
 
     my $statement = $self->dbh->prepare_cached('SELECT * FROM ticks_start_end($1, $2, $3)', {}, 3);
     $statement->bind_param(1, $self->underlying);

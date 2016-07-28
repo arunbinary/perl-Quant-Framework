@@ -21,7 +21,7 @@ has for_date => (
 );
 
 has underlying_config => (
-    is => 'ro',
+    is       => 'ro',
     required => 1,
 );
 
@@ -224,7 +224,6 @@ sub spot_quote {
 
     return $last_price;
 }
-
 
 =head2 spot_time
 
