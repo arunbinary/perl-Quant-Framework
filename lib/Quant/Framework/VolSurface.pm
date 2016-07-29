@@ -18,6 +18,7 @@ use Scalar::Util qw( looks_like_number );
 use List::Util qw( min max first );
 use Number::Closest::XS qw(find_closest_numbers_around);
 use Math::Function::Interpolator;
+use Storable qw(dclone);
 
 use Quant::Framework::Utils::Types;
 use Quant::Framework::VolSurface::Utils;
@@ -472,7 +473,8 @@ sub get_smile_spread {
         }
     }
 
-    return $surface->{$day}{vol_spread} if (exists $surface->{$day}{vol_spread});
+    # autovivification
+    return $surface->{$day}{vol_spread} if (exists $surface->{$day} and exists $surface->{$day}{vol_spread});
     return $self->_compute_and_set_smile_spread($day);
 }
 
@@ -879,7 +881,7 @@ sub clone {
     }
 
     if (not exists $clone_args{surface_data}) {
-        $clone_args{surface_data} = {%{$self->surface_data}};
+        $clone_args{surface_data} = dclone($self->surface_data);
     }
 
     return $self->new(\%clone_args);
