@@ -555,7 +555,7 @@ for daily OHLC values at given time.
 
 `allow_inconsistent` parameters determines how the case should be handled when there is no tick at the 
 exact requested timestamp. If value of this parameter is `1`, then the code will return tick at or before the given timestamp.
-If it is passed as `0`, the code will return any tick at or after given timestamp.
+If it is passed as `0`, the code will return a tick at or before given timestamp if we have a tick after the given timestamp.
 
 To work with the Spot module:
 
