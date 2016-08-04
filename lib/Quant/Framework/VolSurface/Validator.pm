@@ -143,7 +143,7 @@ sub _admissible_check {
     my $builder           = $surface->builder;
     my $calendar          = $surface->calendar;
     my $surface_type      = $surface->type;
-    my $S                 = ($surface_type eq 'delta') ? $underlying_config->spot : $surface->spot_reference;
+    my $S                 = ($surface_type eq 'delta') ? $builder->build_spot->spot_quote : $surface->spot_reference;
     my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
     my $now               = Date::Utility->new;
 

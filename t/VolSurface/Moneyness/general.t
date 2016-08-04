@@ -13,7 +13,8 @@ use Quant::Framework::VolSurface::Moneyness;
 
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
 my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('HSI');
-$underlying_config->{spot} = 100;
+
+my $underlying_config_spot = 100;
 
 Quant::Framework::Utils::Test::create_doc(
     'volsurface_moneyness',
@@ -51,7 +52,7 @@ subtest clone => sub {
     $DB::single = 1;
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
-        spot_reference    => $underlying_config->spot,
+        spot_reference    => $underlying_config_spot,
         surface           => $surface,
         recorded_date     => $now,
         chronicle_reader  => $chronicle_r,
@@ -65,7 +66,7 @@ subtest clone => sub {
     is($clone->surface->{1}->{smile}->{100}, 0.5, 'can change attribute value when clone');
 
     #change spot refernce by 10 pips
-    my $spot_reference = $underlying_config->spot - 0.1;
+    my $spot_reference = $underlying_config_spot - 0.1;
     $clone = $volsurface->clone({spot_reference => $spot_reference});
 
     cmp_ok($clone->spot_reference, '==', $spot_reference, 'Adjusted spot ref preserved through clone.');
@@ -79,7 +80,7 @@ subtest 'get available strikes on surface' => sub {
         '1W' => {smile => {100 => 0.2}}};
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
-        spot_reference    => $underlying_config->spot,
+        spot_reference    => $underlying_config_spot,
         surface           => $surface,
         recorded_date     => $now,
         chronicle_reader  => $chronicle_r,
