@@ -107,21 +107,24 @@ subtest "convert moneyness to delta" => sub {
 
     lives_ok { $v->_convert_moneyness_smile_to_delta(7) } "can convert moneyness smile to delta smile";
     throws_ok { $v->_convert_moneyness_smile_to_delta('asd') } qr/must be a number/,
-        "cannot parse in non-number to convert_moneyness_smile_to_delta method";
+        "from and to dates must be defined";
 
     my $deltas = $v->_convert_moneyness_smile_to_delta(7);
 
     my $BOM_25 = $v->get_volatility({
         delta => 25,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     my $BOM_50 = $v->get_volatility({
         delta => 50,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     my $BOM_75 = $v->get_volatility({
         delta => 75,
-        days  => 7
+        from  => $v->recorded_date,
+        to    => $v->effective_date->plus_time_interval('7d'),
     });
     cmp_ok(abs($BOM_25 - $calculated_delta_from_csv->{25}), "<=", 0.0005, "correct 25D vol");
     cmp_ok(abs($BOM_50 - $calculated_delta_from_csv->{50}), "<=", 0.0005, "correct 50D vol");
@@ -130,7 +133,8 @@ subtest "convert moneyness to delta" => sub {
     is(
         $v->get_volatility({
                 delta => $shuffled_deltas[0],
-                days  => 7
+                from  => $v->recorded_date,
+                to    => $v->recorded_date->plus_time_interval('7d'),
             }
         ),
         $deltas->{$shuffled_deltas[0]},

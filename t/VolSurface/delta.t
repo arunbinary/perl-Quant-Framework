@@ -31,64 +31,65 @@ Quant::Framework::Utils::Test::create_doc(
 my @mocked_builders;
 
 subtest 'get_volatility for different expiries ' => sub {
-    plan tests => 5;
     my $surface = _get_surface();
 
+    my $now = Date::Utility->new;
     throws_ok { $surface->get_volatility({delta => 50, days => undef}) }
-    qr/Must pass exactly one of/i,
-        "throws exception when expiry is undef in get_vol";
-    throws_ok { $surface->get_volatility({delta => 50, days => 1, expiry_date => '12-Jan-12'}) }
-    qr/Must pass exactly/i,
-        "throws exception when more than one expiry format is passed into get_volatility";
-    lives_ok { $surface->get_volatility({delta => 50, expiry_date => Date::Utility->new('12-Jan-12')}) } "can get volatility for expiry_date";
-    lives_ok { $surface->get_volatility({delta => 50, days        => 1}) } "can get volatility for days";
-    lives_ok { $surface->get_volatility({delta => 50, tenor       => '1W'}) } "can get volatility for tenor";
+    qr/Must pass two dates/i,
+        "throws exception when period is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, from => $now}) }
+    qr/Must pass two dates/i,
+        "throws exception when \$to is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, to => $now}) }
+    qr/Must pass two dates/i,
+        "throws exception when \$from is undef in get_vol";
+    throws_ok { $surface->get_volatility({delta => 50, to => $now->minus_time_interval('1s'), from => $now}) }
+    qr/Inverted dates/i,
+        "throws exception when \$from and \$to are inverted in get_vol";
+    $now = $surface->recorded_date;
+    throws_ok { $surface->get_volatility({delta => 50, to => $now->plus_time_interval('1s'), from => $now->minus_time_interval('1s')}) }
+    qr/Requested dates are too far/i,
+        "throws exception when is in the past of surface recorded date in get_vol";
+    lives_ok { $surface->get_volatility({delta => 50, from => $now, to => $now->plus_time_interval('1s')}) }
+    "can get volatility when mandatory arguments are provided";
 };
 
 subtest 'get_volatility for different sought points' => sub {
-    plan tests => 5;
     my $surface = _get_surface();
 
     throws_ok { $surface->get_volatility({strike => 76.8, delta => 50, days => 1}) }
     qr/exactly one of/i,
         "throws exception when more than on sough points are parsed in get_volatility";
     throws_ok { $surface->get_volatility({strike => undef, days => 1}) } qr/exactly one/i, "throws exception if strike is undef";
-    lives_ok { $surface->get_volatility({strike    => 76.5, days => 1, spot => 101}) } "can get_vol for strike";
-    lives_ok { $surface->get_volatility({delta     => 50,   days => 1}) } "can get_vol for delta";
-    lives_ok { $surface->get_volatility({moneyness => 100,  days => 1}) } "can get_vol for moneyness";
+    my $from = $surface->recorded_date;
+    my $to   = $from->plus_time_interval('1s');
+    lives_ok { $surface->get_volatility({strike    => 76.5, from => $from, to => $to, spot => 101}) } "can get_vol for strike";
+    lives_ok { $surface->get_volatility({delta     => 50,   from => $from, to => $to}) } "can get_vol for delta";
+    lives_ok { $surface->get_volatility({moneyness => 100,  from => $from, to => $to}) } "can get_vol for moneyness";
 };
 
 subtest 'get_smile' => sub {
-    plan tests => 19;
+    my $surface = _get_surface();
+    my $from    = $surface->recorded_date;
+    my $to      = $from->plus_time_interval('1d');
+
+    my $smile = $surface->get_smile($from, $to);
+    is $smile->{25}, 0.158943882847805,  'volatility for 25D';
+    is $smile->{50}, 0.0794719414239026, 'volatility for 50D';
+    is $smile->{75}, 0.238415824271708,  'volatility for 75D';
+
+    my $later_date = $from->plus_time_interval('3d');
+    my $smile3 = $surface->get_smile($from, $later_date);
+    cmp_ok $smile3->{25}, '!=', $smile->{25}, 'volatility for 25D is different when both dates of the requested date is on different period';
+    cmp_ok $smile3->{50}, '!=', $smile->{50}, 'volatility for 50D is different when both dates of the requested date is on different period';
+    cmp_ok $smile3->{75}, '!=', $smile->{75}, 'volatility for 75D is different when both dates of the requested date is on different period';
+};
+
+subtest 'get_surface_smile' => sub {
     my $surface = _get_surface();
 
-    my $smile;
-    lives_ok { $smile = $surface->get_smile(1) } "can get_smile for term that already exist on the surface";
-    is($smile->{25}, 0.2, "correct value for 25D");
-    is($smile->{50}, 0.1, "correct value for 50D");
-    is($smile->{75}, 0.3, "correct value for 75D");
-
-    lives_ok { $smile = $surface->get_smile(3) } "can get_smile for interpolated term on the surface";
-    my $D25 = $smile->{25};
-    my $D50 = $smile->{50};
-    my $D75 = $smile->{75};
-    cmp_ok($D25, "<", 0.26, "25D for the interpolated 3-day smile if less than 7-day 25D ");
-    cmp_ok($D25, ">", 0.2,  "25D for the interpolated 3-day smile if more than 1-day 25D ");
-    cmp_ok($D50, "<", 0.22, "50D for the interpolated 3-day smile if less than 7-day 50D ");
-    cmp_ok($D50, ">", 0.1,  "50D for the interpolated 3-day smile if more than 1-day 50D ");
-    cmp_ok($D75, "<", 0.40, "75D for the interpolated 3-day smile if less than 7-day 75D ");
-    cmp_ok($D75, ">", 0.3,  "75D for the interpolated 3-day smile if more than 1-day 75D ");
-
-    lives_ok { $smile = $surface->get_smile(0.5) } "can get_smile for term less than the minimum term on the surface";
-    is($smile->{25}, 0.2 + 0.0225, "correct value for 25D");
-    is($smile->{50}, 0.1,          "correct value for 50D");    # ATM stays the same
-    is($smile->{75}, 0.3 - 0.0225, "correct value for 75D");
-
-    lives_ok { $smile = $surface->get_smile(366) } "can get_smile for term more than the maximum term on the surface";
-    # Just return the highest term smile
-    is($smile->{25}, 0.324, "correct value for 25D");
-    is($smile->{50}, 0.3,   "correct value for 50D");
-    is($smile->{75}, 0.45,  "correct value for 75D");
+    ok keys %{$surface->get_surface_smile(7)},  'return smile if present on surface';
+    ok !keys %{$surface->get_surface_smile(2)}, 'return empty hash if smile is not present on surface';
 };
 
 subtest set_smile => sub {
@@ -211,48 +212,13 @@ subtest get_market_rr_bf => sub {
                     }}}});
 
     my $value;
-    lives_ok { $value = $surface->get_market_rr_bf(7) } "can get market RR and BF values";
+    lives_ok { $value = $surface->get_market_rr_bf(7) }
+    "can get market RR and BF values";
     ok(looks_like_number($value->{RR_25}), "RR_25 is a number");
     ok(looks_like_number($value->{BF_25}), "BF_25 is a number");
     ok(looks_like_number($value->{ATM}),   "ATM is a number");
     ok(looks_like_number($value->{RR_10}), "RR_10 is a number");
     ok(looks_like_number($value->{BF_10}), "BF_10 is a number");
-};
-
-subtest 'Flagging System' => sub {
-    plan tests => 9;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            recorded_date     => Date::Utility->new,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-            save              => 0
-        });
-
-    $surface->set_smile_flag(1, 'first message');
-    $surface->set_smile_flag(1, 'second message');
-    $surface->set_smile_flag(1, 'third message');
-    $surface->set_smile_flag(7, '007');
-
-    my $smile_flag;
-    lives_ok { $smile_flag = $surface->get_smile_flag(1) } 'can get smile flag for a particular day';
-    is(scalar @{$smile_flag}, 3,                "We have three one day flags.");
-    is($smile_flag->[0],      'first message',  "First one day flag is 'first message'");
-    is($smile_flag->[1],      'second message', "Second one day flag is 'second message'");
-    is($smile_flag->[2],      'third message',  "Third one day flag is 'third message'");
-
-    lives_ok { my $smile_flags = $surface->get_smile_flags() } 'can get all smile flags';
-
-    $smile_flag = $surface->get_smile_flag(7);
-
-    is(scalar @{$smile_flag}, 1,     "We have 1 smile flag for 7 days expiry.");
-    is($smile_flag->[0],      '007', "Flag is '007'");
-
-    ok($surface->set_smile_flag('ON', 'ON is bad.'), 'Set smile flag for ON.');
 };
 
 subtest 'object creaion error check' => sub {
@@ -268,7 +234,7 @@ subtest 'object creaion error check' => sub {
                 chronicle_writer => $chronicle_w,
             })
     }
-    qr/Attribute underlying_config is required/, 'Cannot create volsurface without underlying_config';
+    qr/Attribute \(underlying_config\) is required/, 'Cannot create volsurface without underlying_config';
     throws_ok {
         Quant::Framework::VolSurface::Delta->new({
                 surface           => $surface,
@@ -277,7 +243,7 @@ subtest 'object creaion error check' => sub {
                 chronicle_writer  => $chronicle_w,
             })
     }
-    qr/Must pass both "surface" and "recorded_date" if passing either/, 'Cannot create volsurface without recorded_date';
+    qr/Must pass both "surface_data" and "recorded_date" if passing either/, 'Cannot create volsurface without recorded_date';
     lives_ok {
         Quant::Framework::VolSurface::Delta->new({
                 surface           => $surface,
@@ -319,156 +285,72 @@ subtest effective_date => sub {
     is($surface->_ON_day, 2, 'In summer, 21:15 on Friday is after rollover so _ON_day is 2.');
 };
 
-subtest cloning => sub {
-    plan tests => 11;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            recorded_date     => Date::Utility->new,
-            save              => 0,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    my $clone = $surface->clone;
-
-    isa_ok($clone, 'Quant::Framework::VolSurface::Delta');
-    is($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone without overrides: underlying.');
-    is($surface->cutoff->code, $clone->cutoff->code, 'clone without overrides: cutoff.');
-    is_deeply($surface->surface, $clone->surface, 'clone without overrides: surface.');
-    is($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone without overrides: recorded_date.');
-    is($surface->print_precision,         $clone->print_precision,         'clone without overrides: print_precision.');
-
-    $clone = $surface->clone({
-            underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxGBPNOK'),
-            cutoff            => 'UTC 13:37',
-            surface           => {
-                7 => {
-                    smile => {
-                        25 => 0.55,
-                        50 => 0.55,
-                        75 => 0.55
-                    }}
-            },
-            recorded_date   => Date::Utility->new('20-Jan-12'),
-            print_precision => 1,
-        });
-
-    isnt($surface->underlying_config->symbol, $clone->underlying_config->symbol, 'clone with overrides: underlying.');
-    isnt($surface->cutoff->code, $clone->cutoff->code, 'clone with overrides: cutoff.');
-    cmp_ok(scalar @{$surface->term_by_day}, '!=', scalar @{$clone->term_by_day}, 'clone with overrides: surface.');
-    isnt($surface->recorded_date->datetime, $clone->recorded_date->datetime, 'clone with overrides: recorded_date.');
-    isnt($surface->print_precision,         $clone->print_precision,         'clone with overrides: print_precision.');
-};
-
-subtest 'get_volatility, part 1.' => sub {
-    my $expected_vols_delta = {
-        7 => {
+subtest 'variance table' => sub {
+    my $monday_bef_ro = Date::Utility->new('2016-07-04 18:00:00');
+    my $surface_data  = {
+        1 => {
             smile => {
-                25 => 0.17,
-                50 => 0.16,
+                25 => 0.2,
+                50 => 0.19,
                 75 => 0.22
             },
-            vol_spread => {50 => 0.1},
-        },
-        14 => {
-            smile => {
-                25 => 0.17,
-                50 => 0.152,
-                75 => 0.218
-            },
-            vol_spread => {50 => 0.1},
-        },
-        30 => {
-            smile => {
-                25 => 0.173,
-                50 => 0.15,
-                75 => 0.213
-            },
-            vol_spread => {50 => 0.1},
-        },
-        60 => {
-            smile => {
-                25 => 0.183,
-                50 => 0.158,
-                75 => 0.215
-            },
-            vol_spread => {50 => 0.1},
-        },
-        91 => {
-            smile => {
-                25 => 0.189,
-                50 => 0.167,
-                75 => 0.217
-            },
-            vol_spread => {50 => 0.1},
-        },
-        182 => {
-            smile => {
-                25 => 0.202,
-                50 => 0.183,
-                75 => 0.222
-            },
-            vol_spread => {
-                50 => 0.1,
-            }
-        },
+            atm_spread => {50 => 0.01}}};
+    my $args = {
+        underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY'),
+        recorded_date     => $monday_bef_ro,
+        surface           => $surface_data,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+        save              => 0,
     };
-
-    my @days_to_expiry = sort { $a <=> $b } keys %{$expected_vols_delta};
-
-    plan tests => scalar(@days_to_expiry) * 6 + 5;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            surface           => $expected_vols_delta,
-            recorded_date     => Date::Utility->new,
-            save              => 0,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    cmp_deeply(\@days_to_expiry, $surface->term_by_day, 'Term structures (delta) are same.');
-    # Test that delta object is populated correctly
-    foreach my $day (@days_to_expiry) {
-        foreach my $delta (50, 75, 25) {
-            my $vol;
-            lives_ok {
-                $vol = $surface->get_volatility({
-                    days  => $day,
-                    delta => $delta,
-                });
-            }
-            'Can get volatility from delta surface. delta: ' . $delta;
-
-            # The market quote vols (non-interpolated) must agree
-            cmp_ok(
-                $vol, '==',
-                $expected_vols_delta->{$day}->{smile}->{$delta},
-                "$delta delta Vol for $day days is $expected_vols_delta->{$day}->{smile}->{$delta}"
-            );
-        }
+    my $surface = Quant::Framework::Utils::Test::create_doc('volsurface_delta', $args);
+    is $surface->variance_table->{$surface->effective_date->plus_time_interval('1d14h')->epoch}->{50}, 0.19**2 * 1, 'variance is correct';
+    is $surface->effective_date->date, $monday_bef_ro->date, 'effective date is on the same day before rollover';
+    lives_ok {
+        my @expected = ($monday_bef_ro->epoch, $surface->effective_date->plus_time_interval('1d14h')->epoch);
+        cmp_bag([keys %{$surface->variance_table}], \@expected, 'correct dates in variance table');
     }
+    'variance table';
 
-    # Test format given for expiries.
-    my @test_data = ('1.003', 8 / 86400, 1 / 86400, '1.003e-05');
-
-    foreach my $day (@test_data) {
-        lives_ok {
-            my $vol = $surface->get_volatility({
-                days        => $day,
-                delta       => 50,
-                extrapolate => 0,
-            });
-        }
-        'Can get volatility from delta surface.';
+    $args->{recorded_date} = Date::Utility->new('2016-07-04 23:00:00');
+    $surface = Quant::Framework::Utils::Test::create_doc('volsurface_delta', $args);
+    is $surface->effective_date->date, $monday_bef_ro->plus_time_interval('1d')->date, 'effective date is next day';
+    lives_ok {
+        my @expected = ($args->{recorded_date}->epoch, Date::Utility->new('2016-07-06 14:00:00')->epoch);
+        cmp_bag([keys %{$surface->variance_table}], \@expected, 'correct dates in variance table');
     }
+    'variance table';
+};
+
+subtest 'get weight' => sub {
+    my $trading_day        = Date::Utility->new('2016-07-04');
+    my $weekend            = Date::Utility->new('2016-07-03');
+    my $trading_day_weight = 1;
+    my $weekend_weight     = 0.5;
+    my $surface            = _get_surface();
+
+    is $surface->get_weight($trading_day, $trading_day->plus_time_interval('4h')), 1 / 6, 'correct weight';
+    is $surface->get_weight($trading_day, $trading_day->plus_time_interval('6h')), 1 / 4, 'correct weight';
+    is $surface->get_weight($weekend->plus_time_interval('18h'), $trading_day->plus_time_interval('6h')), (21600 / 86400 * 0.06) + (1 / 4),
+        'correct weight for cross day';
+    is $surface->get_weight($weekend->plus_time_interval('23h30m'), $trading_day->plus_time_interval('1h')), ((30*60)/86400 * 0.06) + (1/24), 'less than one hour cross day';
+};
+
+subtest 'get variance' => sub {
+    my $surface  = _get_surface();
+    my $expected = {
+        25 => 0.04,
+        50 => 0.01,
+        75 => 0.09,
+    };
+    my $effective_date = $surface->effective_date;
+    is_deeply $surface->get_variances($effective_date->plus_time_interval('1d14h')), $expected, 'correct variances retrieved';
+    # as period decreases, so does variance.
+    note('assuming variance is equally distributed');
+    ok $surface->get_variances($effective_date->plus_time_interval('1h'))->{50} <
+        $surface->get_variances($effective_date->plus_time_interval('2h'))->{50}, 'variance of 1h < variance of 2h';
+    ok $surface->get_variances($effective_date->plus_time_interval('2h'))->{50} <
+        $surface->get_variances($effective_date->plus_time_interval('3h'))->{50}, 'variance of 2h < variance of 3h';
 };
 
 subtest 'save surface to chronicle' => sub {
@@ -479,70 +361,6 @@ subtest 'save surface to chronicle' => sub {
 };
 
 # PRIVATE METHODS
-
-subtest _days_with_smiles => sub {
-    plan tests => 4;
-    my $surface = _get_surface();
-
-    my @days;
-    lives_ok {
-        @days = sort { $a <=> $b } @{$surface->_days_with_smiles()};
-    }
-    'can call _get_days_with_smile';
-    foreach my $day (@days) {
-        ok(exists $surface->surface->{$day}->{smile}, "smile for $day exists");
-    }
-};
-
-subtest _convert_expiry_to_day => sub {
-    plan tests => 3;
-    my $surface = _get_surface();
-    lives_ok { $surface->_convert_expiry_to_day({expiry_date => Date::Utility->new()}) } 'can convert for expiry_date';
-    lives_ok { $surface->_convert_expiry_to_day({tenor       => '1W'}) } 'can convert for tenor';
-    lives_ok { $surface->_convert_expiry_to_day({days        => 1}) } 'can convert for days';
-};
-
-subtest _validate_sought_points => sub {
-    plan tests => 6;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    my $surface    = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            surface           => {
-                7 => {
-                    atm_spread => 0.01,
-                },
-            },
-            recorded_date    => Date::Utility->new,
-            chronicle_reader => $chronicle_r,
-            chronicle_writer => $chronicle_w,
-            save             => 0,
-        });
-
-    throws_ok {
-        $surface->_validate_sought_values(undef, undef);
-    }
-    qr/Days\S+ or sought_point\S+ is undefined/, 'undefined day.';
-    throws_ok {
-        $surface->_validate_sought_values(7, undef);
-    }
-    qr/Days\S+ or sought_point\S+ is undefined/, 'undefined sought_point.';
-    throws_ok {
-        $surface->_validate_sought_values(7, 'chicken');
-    }
-    qr/must be a number/, 'sought_point is not a number.';
-    throws_ok {
-        $surface->_validate_sought_values(0, 7);
-    }
-    qr/requires positive numeric days\S+ and sought_point/, 'day is zero.';
-    throws_ok {
-        $surface->_validate_sought_values(7, -1);
-    }
-    qr/requires positive numeric days\S+ and sought_point/, 'sought_point is negative.';
-    cmp_ok(scalar @{$surface->smile_points}, '==', 0, 'Surface with no smiles (very sad).');
-};
 
 subtest '_get_points_to_interpolate' => sub {
     plan tests => 15;
@@ -581,73 +399,6 @@ subtest _is_between => sub {
         'throws exception if at least one of the points are not defined';
     ok($surface->_is_between(2, [1, 3]), "returns true if seek is between available points");
     ok(!$surface->_is_between(4, [1, 2]), 'returns false if seek if not in between available points');
-};
-
-subtest _is_tenor => sub {
-    plan tests => 3;
-
-    lives_ok { Quant::Framework::VolSurface::_is_tenor('1W') } 'can call _is_tenor';
-    ok(!Quant::Framework::VolSurface::_is_tenor(3),   'returns false if not tenor');
-    ok(Quant::Framework::VolSurface::_is_tenor('2M'), 'returns true if tenor');
-};
-
-subtest 'Private method _get_initial_rr' => sub {
-    plan tests => 2;
-
-    my $ul                 = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
-    my $surface            = _get_surface({underlying_config => $ul});
-    my $first_market_point = $surface->original_term_for_smile->[0];
-    my $market             = $surface->get_market_rr_bf($first_market_point);
-    my %initial_rr         = %{$surface->_get_initial_rr($market)};
-    is($initial_rr{RR_25}, 0.1 * $market->{RR_25}, 'correct interpolated RR');
-
-    $ul                 = Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD');
-    $surface            = _get_surface({underlying_config => $ul});
-    $first_market_point = $surface->original_term_for_smile->[0];
-    $market             = $surface->get_market_rr_bf($first_market_point);
-    %initial_rr         = %{$surface->_get_initial_rr($market)};
-    ok(looks_like_number($initial_rr{RR_25}), 'Got reasonable RR_25 for Index.');
-};
-
-subtest fetch_historical_surface_date => sub {
-    plan tests => 3;
-
-    my $underlying = Quant::Framework::Utils::Test::create_underlying_config('frxUSDJPY');
-    # Save a couple of surface so that we have some history.
-    Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            symbol            => 'frxUSDJPY',
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-            recorded_date     => Date::Utility->new->minus_time_interval('5m'),
-        });
-
-    my $surface = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => $underlying,
-            symbol            => 'frxUSDJPY',
-            recorded_date     => Date::Utility->new,
-            chronicle_reader  => $chronicle_r,
-            chronicle_writer  => $chronicle_w,
-        });
-
-    my $dates = $surface->fetch_historical_surface_date({
-        back_to => 100,
-    });
-
-    is(ref $dates, 'ARRAY', 'fetch_historical_surface_date returns an array ref.');
-
-    my $contains_non_dates = grep { $_ !~ /^\d{4}\-\d{2}\-\d{2}/ } @{$dates};
-
-    cmp_ok($contains_non_dates, '==', 0, 'All elements of fetch_historical_surface_date are Date::Utilitys.');
-
-    $dates = $surface->fetch_historical_surface_date({
-        back_to => 1,
-    });
-    is(scalar @{$dates}, 1, 'fetch_historical_surface_date going back only one revision.');
 };
 
 sub _get_surface {

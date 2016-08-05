@@ -142,7 +142,6 @@ correlation_matrix:
 volsurface_delta:
   class_name: 'Quant::Framework::VolSurface::Delta'
   data:
-    symbol: frxUSDJPY
     surface:
       7:
         smile:
@@ -191,7 +190,6 @@ volsurface_moneyness:
   class_name: 'Quant::Framework::VolSurface::Moneyness'
   data:
     spot_reference: 7150
-    symbol: GDAXI
     surface:
       7:
         smile:

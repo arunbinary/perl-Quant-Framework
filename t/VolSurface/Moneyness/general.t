@@ -37,40 +37,11 @@ Quant::Framework::Utils::Test::create_doc(
 Quant::Framework::Utils::Test::create_doc(
     'index',
     {
-        symbol           => 'SPC',
+        symbol           => $_,
         date             => Date::Utility->new,
         chronicle_reader => $chronicle_r,
         chronicle_writer => $chronicle_w,
-    });
-
-subtest clone => sub {
-    plan tests => 5;
-    my $now     = Date::Utility->new('2012-06-14 08:00:00');
-    my $surface = {
-        'ON' => {smile => {100 => 0.1}},
-        '1W' => {smile => {100 => 0.2}}};
-    $DB::single = 1;
-    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
-        underlying_config => $underlying_config,
-        spot_reference    => $underlying_config_spot,
-        surface           => $surface,
-        recorded_date     => $now,
-        chronicle_reader  => $chronicle_r,
-        chronicle_writer  => $chronicle_w,
-    );
-
-    lives_ok { $volsurface->clone } 'Can clone Quant::Framework::VolSurface::Moneyness';
-    my $clone;
-    lives_ok { $clone = $volsurface->clone({surface => {ON => {smile => {100 => 0.5}}}}) };
-    isa_ok($clone, 'Quant::Framework::VolSurface::Moneyness');
-    is($clone->surface->{1}->{smile}->{100}, 0.5, 'can change attribute value when clone');
-
-    #change spot refernce by 10 pips
-    my $spot_reference = $underlying_config_spot - 0.1;
-    $clone = $volsurface->clone({spot_reference => $spot_reference});
-
-    cmp_ok($clone->spot_reference, '==', $spot_reference, 'Adjusted spot ref preserved through clone.');
-};
+    }) for (qw(SPC HSI));
 
 subtest 'get available strikes on surface' => sub {
     plan tests => 2;
@@ -87,7 +58,7 @@ subtest 'get available strikes on surface' => sub {
         chronicle_writer  => $chronicle_w,
     );
     my $moneyness_points;
-    lives_ok { $moneyness_points = $volsurface->moneynesses } 'can call moneynesses';
+    lives_ok { $moneyness_points = $volsurface->smile_points } 'can call smile_points';
     is_deeply($moneyness_points, [100], 'get correct value for moneyness points');
 };
 
@@ -114,32 +85,18 @@ subtest 'get surface spot reference' => sub {
     ok(looks_like_number($spot), 'spot is a number');
 };
 
-subtest _convert_strike_to_delta => sub {
-    plan tests => 3;
-
-    my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('SPC');
-    $underlying_config->{spot} = 100;
-
-    my $surface = {
-        'ON' => {smile => {100 => 0.1}},
-        '1W' => {smile => {100 => 0.2}}};
+subtest 'get_market_rr_bf' => sub {
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
-        surface           => $surface,
-        recorded_date     => Date::Utility->new('2012-06-14 08:00:00'),
-        spot_reference    => 100,
         chronicle_reader  => $chronicle_r,
         chronicle_writer  => $chronicle_w,
     );
-    my $args = {
-        strike => 100,
-        days   => 7,
-        vol    => 0.11
-    };
-    my $delta;
-    lives_ok { $delta = $volsurface->_convert_strike_to_delta($args) } 'can convert strike to delta';
-    ok(looks_like_number($delta), 'delta is a number');
-    cmp_ok($delta, '<=', 100, 'delta is <= 100');
+    lives_ok {
+        my $rr_bf = $volsurface->get_market_rr_bf(7);
+        ok exists $rr_bf->{ATM}, 'ATM exists';
+        ok exists $rr_bf->{RR_25}, 'RR_25 exists';
+        ok exists $rr_bf->{BF_25}, 'BF_25 exists';
+    } 'get_market_rr_bf';
 };
 
 done_testing;

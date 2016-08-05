@@ -70,15 +70,18 @@ my $v = Quant::Framework::VolSurface::Moneyness->new(
     chronicle_reader  => $chronicle_r,
     chronicle_writer  => $chronicle_w,
 );
+my $from = $v->recorded_date;
+my $to   = $from->plus_time_interval('7d');
 
 subtest "get_vol for term structure that exists on surface" => sub {
     plan tests => 6;
 
-    lives_ok { $v->get_volatility({days => 7, moneyness => 90}) } "can get volatility from smile";
+    lives_ok { $v->get_volatility({from => $from, to => $to, moneyness => 90}) } "can get volatility from smile";
     is(
         $v->get_volatility({
-                days      => 7,
-                moneyness => 90
+                moneyness => 90,
+                from      => $from,
+                to        => $to,
             }
         ),
         0.313,
@@ -86,7 +89,7 @@ subtest "get_vol for term structure that exists on surface" => sub {
     );
 
     my $linearly_interpolated;
-    lives_ok { $linearly_interpolated = $v->get_volatility({days => 7, moneyness => 93}) } "can interpolate across moneyness smile";
+    lives_ok { $linearly_interpolated = $v->get_volatility({from => $from, to => $to, moneyness => 93}) } "can interpolate across moneyness smile";
     cmp_ok($linearly_interpolated, '<', 0.313,  "vol is smaller than first point");
     cmp_ok($linearly_interpolated, '>', 0.2848, "vol is larger than second point");
     ok(!exists $v->get_smile(7)->{93}, "doesn't save interpolated smile point on smile");
@@ -108,7 +111,8 @@ subtest 'Interpolating down.' => sub {
     ok(
         looks_like_number(
             $surface->get_volatility({
-                    days      => 0.5,
+                    from      => $surface->recorded_date,
+                    to        => $surface->recorded_date->plus_time_interval('43200s'),
                     moneyness => 90,
                 })
         ),
@@ -137,13 +141,15 @@ subtest "get_vol for interpolated term structure" => sub {
             chronicle_writer => $chronicle_w,
         });
 
+    my $from = $surface->recorded_date;
+    my $to   = $from->plus_time_interval('8d');
     cmp_ok(scalar @{$surface->original_term_for_smile}, '==', 1, "Surface's original_term_for_smile.");
-    throws_ok { $surface->get_volatility({days => 8, moneyness => 90}) } qr/Need 2 or more/i,
+    throws_ok { $surface->get_volatility({from => $from, to => $to, moneyness => 90}) } qr/Need 2 or more/i,
         "cannot interpolate with only one term structure on surface";
 
     my $vol;
 
-    lives_ok { $vol = $v->get_volatility({days => 8, moneyness => 90}) } "can get volatility for term that doesn't exist on surface";
+    lives_ok { $vol = $v->get_volatility({from => $from, to => $to, moneyness => 90}) } "can get volatility for term that doesn't exist on surface";
     cmp_ok($vol, '<', 0.313,  "vol is smaller than first point");
     cmp_ok($vol, '>', 0.2848, "vol is larger than second point");
     ok(exists $v->get_smile(8)->{90}, "interpolated smile is saved on surface");
@@ -158,13 +164,12 @@ subtest "get_vol for a smile that has a single point" => sub {
         $v->clear_smile_points;
     $v = Test::MockObject::Extends->new($v);
     $v->mock('surface', sub { {7 => {smile => {80 => 0.1}}} });
-    throws_ok { $v->get_volatility({days => 7, moneyness => 70}) } qr/cannot interpolate/i, "cannot interpolate with one point on smile";
+    throws_ok { $v->get_volatility({from => $v->recorded_date, to => $v->recorded_date->plus_time_interval('7d'), moneyness => 70}) }
+    qr/cannot interpolate/i, "cannot interpolate with one point on smile";
     $v->unmock('surface');
 };
 
 subtest "get_vol for delta" => sub {
-    plan tests => 10;
-
     my $new_v = Quant::Framework::VolSurface::Moneyness->new(
         recorded_date     => $recorded_date,
         underlying_config => $underlying_config,
@@ -174,18 +179,11 @@ subtest "get_vol for delta" => sub {
         chronicle_writer  => $chronicle_w,
     );
 
-    ok(!exists $new_v->corresponding_deltas->{8}, "corresponding_deltas does not exist before request");
-    lives_ok { $new_v->get_volatility({delta => 50, days => 8}) } "can get_vol for 50 delta";
-    is(scalar keys %{$new_v->corresponding_deltas}, 1, "1 delta smile added");
-    ok(exists $new_v->corresponding_deltas->{8}, "calculated delta smile is saved on corresponding_deltas");
-
-    ok(!exists $new_v->corresponding_deltas->{8.5}, "corresponding_deltas does not exist before request");
-    lives_ok { $new_v->get_volatility({delta => 50, days => 8.5}) } "can get_vol for 50 delta";
-    is(scalar keys %{$new_v->corresponding_deltas}, 2, "2 delta smiles added");
-    ok(exists $new_v->corresponding_deltas->{8.5}, "calculated delta smile is saved on corresponding_deltas");
-
-    lives_ok { $new_v->get_volatility({delta => 0.05, days => 7}) } "can get_vol for 0.05 delta";
-    lives_ok { $new_v->get_volatility({delta => 99,   days => 7}) } "can get_vol for 99 delta";
+    my $from = $new_v->recorded_date;
+    lives_ok { $new_v->get_volatility({delta => 50, from => $from, to => $from->plus_time_interval('8d')}) } "can get_vol for 50 delta";
+    lives_ok { $new_v->get_volatility({delta => 50, from => $from, to => $from->plus_time_interval('8d12h')}) } "can get_vol for 50 delta";
+    lives_ok { $new_v->get_volatility({delta => 0.05, from => $from, to => $from->plus_time_interval('7d')}) } "can get_vol for 0.05 delta";
+    lives_ok { $new_v->get_volatility({delta => 99,   from => $from, to => $from->plus_time_interval('7d')}) } "can get_vol for 99 delta";
 };
 
 subtest 'get_vol for term less than the available term on surface' => sub {
@@ -201,7 +199,13 @@ subtest 'get_vol for term less than the available term on surface' => sub {
     );
 
     my $vol;
-    lives_ok { $vol = $volsurface->get_volatility({days => 1, moneyness => 100}) }
+    lives_ok {
+        $vol = $volsurface->get_volatility({
+                from      => $volsurface->recorded_date,
+                to        => $volsurface->recorded_date->plus_time_interval('1d'),
+                moneyness => 100
+            })
+    }
     'can get volatility for term less than the smallest term of the surface';
     ok(exists $volsurface->surface->{1}, 'does not extrapolate smile');
     is($vol, $volsurface->surface->{7}->{smile}->{100}, "returns the correct vol from the smallest term's smile");

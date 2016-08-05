@@ -26,3 +26,5 @@ Revision history for Quant-Framework
         Remove unsed cache
 0.30    25 Jul 2016
         Adding Spot and related modules
+0.31    2 Aug 2016
+        New algorithm for volatility calculation

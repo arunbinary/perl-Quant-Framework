@@ -1324,6 +1324,20 @@ Returns our closed weight for days when the market is closed.
 sub weight_on {
     my ($self, $date) = @_;
 
+    state %cache;
+    state $cache_init_time = time;
+
+    my $current_time = time;
+    # clears cache after 5 minutes
+    if ($current_time - $cache_init_time > 300) {
+        $cache_init_time = $current_time;
+        %cache           = ();
+    }
+
+    my $epoch = $date->truncate_to_day->epoch;
+
+    return $cache{$self->symbol}{$epoch} if exists $cache{$self->symbol}{$epoch};
+
     my $base      = $self->_build_asset;
     my $numeraire = Quant::Framework::Currency->new({
         symbol           => $self->underlying_config->quoted_currency_symbol,
@@ -1351,6 +1365,8 @@ sub weight_on {
         my $commodities_weight = $usd->has_holiday_on($date) ? 0.5 : 1;
         $weight = min($weight, $commodities_weight);
     }
+
+    $cache{$self->symbol}{$epoch} = $weight;
 
     return $weight;
 }

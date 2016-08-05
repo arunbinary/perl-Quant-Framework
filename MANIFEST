@@ -1,5 +1,6 @@
 .travis.yml
 Changes
+'Forward Vol doc.docx'
 lib/Quant/Framework.pm
 lib/Quant/Framework/Asset.pm
 lib/Quant/Framework/CorporateAction.pm
@@ -26,11 +27,9 @@ lib/Quant/Framework/Utils/Test.pm
 lib/Quant/Framework/Utils/Types.pm
 lib/Quant/Framework/Utils/UnderlyingConfig.pm
 lib/Quant/Framework/VolSurface.pm
-lib/Quant/Framework/VolSurface/Cutoff.pm
 lib/Quant/Framework/VolSurface/Delta.pm
 lib/Quant/Framework/VolSurface/Moneyness.pm
 lib/Quant/Framework/VolSurface/Utils.pm
-lib/Quant/Framework/VolSurface/Validator.pm
 Makefile.PL
 MANIFEST			This list of files
 README.md
@@ -63,19 +62,15 @@ t/rc/.perltidyrc
 t/Spot/01_invert.t
 t/Spot/02_spot.t
 t/tentative_events.t
-t/VolSurface/Cutoff.t
 t/VolSurface/delta.t
 t/VolSurface/Delta/BloombergSurfaces.pm
 t/VolSurface/Delta/ClarkSurfaces.pm
-t/VolSurface/Delta/expiry_date.t
-t/VolSurface/Delta/interpolation.t
 t/VolSurface/Delta/interpolation/EURUSD_20120113024000.csv
 t/VolSurface/Delta/interpolation/EURUSD_20120117231500.csv
 t/VolSurface/Delta/interpolation/FTSE_20120113025829.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120111024000.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120113024300.csv
 t/VolSurface/Delta/interpolation/USDJPY_20120117231000.csv
-t/VolSurface/Delta/transform_to_cutoff.t
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111125020800.csv
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111128050525.csv
 t/VolSurface/Delta/transform_to_cutoff/EURGBP_volcuts_20111128212530.csv
@@ -91,6 +86,7 @@ t/VolSurface/Delta/transform_to_cutoff/EURUSD_volcuts_20111128214300.csv
 t/VolSurface/Delta/transform_to_cutoff/EURUSD_volcuts_20111128220200.csv
 t/VolSurface/Delta/transform_to_cutoff/EURUSD_volcuts_20111128222900.csv
 t/VolSurface/Delta/transform_to_cutoff/EURUSD_volcuts_20111128230200.csv
+t/VolSurface/general.t
 t/VolSurface/Moneyness/convert_moneyness_to_delta.t
 t/VolSurface/Moneyness/error_check.t
 t/VolSurface/Moneyness/general.t
