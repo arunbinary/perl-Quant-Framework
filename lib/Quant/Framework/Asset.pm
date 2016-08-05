@@ -1,22 +1,22 @@
-package Quant::Framework::Dividend;
+package Quant::Framework::Asset;
 
 =head1 NAME
 
-Quant::Framework::Dividend - A module to save/load dividends 
+Quant::Framework::Asset - A module to save/load dividends 
 
 =head1 DESCRIPTION
 
 This module saves/loads dividends data to/from Chronicle. 
 To save dividends for a company:
 
-my $corp_dividends = Quant::Framework::Dividends->new(symbol => $symbol,
+my $corp_dividends = Quant::Framework::Asset->new(symbol => $symbol,
         rates => { 1 => 0, 2 => 1, 3=> 0.04 }
         discrete_points => { '2015-04-24' => 0, '2015-09-09' => 0.134 });
  $corp_dividends->save;
 
 To read dividends information for a company:
 
- my $corp_dividends = Quant::Framework::Dividends->new(symbol => $symbol);
+ my $corp_dividends = Quant::Framework::Asset->new(symbol => $symbol);
 
  my $rates = $corp_dividends->rates;
  my $disc_points = $corp_dividends->discrete_points;
