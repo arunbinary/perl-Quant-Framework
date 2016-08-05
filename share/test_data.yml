@@ -18,14 +18,14 @@ currency:
       365: 2.339
 
 randomindex:
-  class_name: 'Quant::Framework::Dividend'
+  class_name: 'Quant::Framework::Asset'
   data:
     symbol: "R_100"
     rates:
       7: 0
 
 stock:
-  class_name: 'Quant::Framework::Dividend'
+  class_name: 'Quant::Framework::Asset'
   data:
     symbol: "USAAPL"
     rates:
@@ -46,7 +46,7 @@ stock:
       365: 0.73
 
 index:
-  class_name: 'Quant::Framework::Dividend'
+  class_name: 'Quant::Framework::Asset'
   data:
     symbol: FTSE
     rates:
