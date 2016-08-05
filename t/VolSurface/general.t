@@ -282,7 +282,7 @@ subtest 'clone' => sub {
         'volsurface_moneyness',
         {
             underlying_config => $underlying_config,
-            spot_reference    => $underlying_config->spot,
+            spot_reference    => 101,
             recorded_date     => Date::Utility->new,
             chronicle_reader  => $chronicle_r,
             chronicle_writer  => $chronicle_w,
