@@ -78,12 +78,14 @@ my $v = Quant::Framework::VolSurface::Moneyness->new(
     chronicle_reader  => $chronicle_r,
     chronicle_writer  => $chronicle_w,
 );
+my $from = $v->recorded_date;
+my $to   = $from->plus_time_interval('7d');
 
 subtest "can get volatility for strike, delta, and moneyness" => sub {
     plan tests => 3;
-    lives_ok { $v->get_volatility({days => 7, delta     => 25}) } "can get_volatility for delta point on a moneyness surface";
-    lives_ok { $v->get_volatility({days => 7, moneyness => 104}) } "can get_volatility for moneyness point on a moneyness surface";
-    lives_ok { $v->get_volatility({days => 7, strike    => 304.68}) } "can get_volatility for strike point on a moneyness surface";
+    lives_ok { $v->get_volatility({from => $from, to => $to, delta     => 25}) } "can get_volatility for delta point on a moneyness surface";
+    lives_ok { $v->get_volatility({from => $from, to => $to, moneyness => 104}) } "can get_volatility for moneyness point on a moneyness surface";
+    lives_ok { $v->get_volatility({from => $from, to => $to, strike    => 304.68}) } "can get_volatility for strike point on a moneyness surface";
 };
 
 subtest "cannot get volatility when underlying spot is undef" => sub {
@@ -120,12 +122,12 @@ subtest "cannot get volatility when underlying spot is undef" => sub {
     }
     'creates moneyness surface without spot reference';
     is($v_new2->spot_reference, 101, 'spot reference retrieved from database');
-    lives_ok { $v_new2->get_volatility({days => 7, delta => 35}) } "can get_volatility";
+    lives_ok { $v_new2->get_volatility({from => $from, to => $to, delta => 35}) } "can get_volatility";
 };
 
 subtest "cannot get volatility for anything other than [strike, delta, moneyness]" => sub {
     plan tests => 1;
-    throws_ok { $v->get_volatility({days => 7, garbage => 25}) } qr/exactly one of/i,
+    throws_ok { $v->get_volatility({from => $from, to => $to, garbage => 25}) } qr/exactly one of/i,
         "cannot get_volatility for garbage point on a moneyness surface";
 };
 
@@ -134,7 +136,8 @@ subtest "uses smile of the smallest available term structure when we need price 
     is(
         $v->get_volatility({
                 moneyness => 100,
-                days      => 1
+                from      => $from,
+                to        => $from->plus_time_interval('1d'),
             }
         ),
         0.1639,

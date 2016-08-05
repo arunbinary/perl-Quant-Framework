@@ -15,80 +15,31 @@ extends 'Quant::Framework::VolSurface';
 
 use Date::Utility;
 use VolSurface::Utils qw(get_delta_for_strike get_strike_for_moneyness);
-use Try::Tiny;
+use Scalar::Util qw( looks_like_number );
 use Math::Function::Interpolator;
 use List::MoreUtils qw(indexes);
-use List::Util qw(min first);
-use Storable qw( dclone );
-use JSON qw(from_json);
+use List::Util qw(min max);
 
-=head2 for_date
+=head2 surface_data
 
-The date for which we wish data
+The original surface data.
 
 =cut
 
-has for_date => (
-    is      => 'ro',
-    isa     => 'Maybe[Date::Utility]',
-    default => undef,
-);
-
-has document => (
-    is         => 'rw',
+has surface_data => (
+    is         => 'ro',
     lazy_build => 1,
 );
 
-sub _build_document {
+sub _build_surface_data {
     my $self = shift;
 
-    my $document = $self->chronicle_reader->get('volatility_surfaces', $self->symbol);
+    # For backward compatibility
+    my $date    = $self->for_date            // Date::Utility->new;
+    my $surface = $self->document->{surface} // $self->document->{surfaces}{'UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm};
+    die('surface data not found for ' . $self->symbol) unless $surface;
 
-    if ($self->for_date and $self->for_date->epoch < Date::Utility->new($document->{date})->epoch) {
-        $document = $self->chronicle_reader->get_for('volatility_surfaces', $self->symbol, $self->for_date->epoch);
-
-        # This works around a problem with Volatility surfaces and negative dates to expiry.
-        # We have to use the oldest available surface.. and we don't really know when it
-        # was relative to where we are now.. so just say it's from the requested day.
-        # We do not allow saving of historical surfaces, so this should be fine.
-        $document //= {};
-    }
-
-    return $document;
-}
-
-=head2 save
-
-Saves current surface using chronicle writer
-
-=cut
-
-sub save {
-    my $self = shift;
-
-    #if chronicle does not have this document, first create it because in document_content we will need it
-    if (not defined $self->chronicle_reader->get('volatility_surfaces', $self->symbol)) {
-        #Due to some strange coding of retrieval for recorded_date, there MUST be an existing document (even empty)
-        #before one can save a document. As a result, upon the very first storage of an instance of the document, we need to create an empty one.
-        $self->chronicle_writer->set('volatility_surfaces', $self->symbol, {});
-    }
-
-    return $self->chronicle_writer->set('volatility_surfaces', $self->symbol, $self->_document_content, $self->recorded_date);
-}
-
-sub _document_content {
-    my $self = shift;
-
-    my %structure = (
-        surfaces       => {$self->cutoff->code => $self->surface},
-        date           => $self->recorded_date->datetime_iso8601,
-        master_cutoff  => $self->cutoff->code,
-        symbol         => $self->symbol,
-        type           => $self->type,
-        spot_reference => $self->spot_reference,
-    );
-
-    return \%structure;
+    return $self->_clean($surface);
 }
 
 =head2 type
@@ -119,36 +70,6 @@ has atm_spread_point => (
     default => 100,
 );
 
-=head2 moneynesses
-
-Returns the moneyness points on the surface
-
-=cut
-
-has moneynesses => (
-    is         => 'ro',
-    isa        => 'ArrayRef',
-    lazy_build => 1,
-);
-
-sub _build_moneynesses {
-    my $self = shift;
-    return $self->smile_points;
-}
-
-=head2 corresponding_deltas
-
-Stores the corresponding moneyness smile in terms on delta.
-This is aimed to reduced computation time.
-
-=cut
-
-has corresponding_deltas => (
-    is      => 'rw',
-    isa     => 'HashRef',
-    default => sub { {} },
-);
-
 =head2 spot_reference
 
 Get the spot reference used to calculate the surface.
@@ -172,9 +93,9 @@ sub _build_spot_reference {
 
 USAGE:
 
-  my $vol = $s->get_volatility({moneyness => 96, days => 7});
-  my $vol = $s->get_volatility({strike => $bet->barrier, tenor => '1M'});
-  my $vol = $s->get_volatility({moneyness => 90, expiry_date => Date::Utility->new});
+  my $vol = $s->get_volatility({moneyness => 96, from => $from, to => $to});
+  my $vol = $s->get_volatility({strike => $bet->barrier, from => $from, to => $to});
+  my $vol = $s->get_volatility({moneyness => 90, from => $from, to => $to});
 
 =cut
 
@@ -185,31 +106,142 @@ sub get_volatility {
         die("Must pass exactly one of [delta, moneyness, strike] to get_volatility.");
     }
 
-    $args->{days} = $self->underlying_config->default_volatility_duration // $self->_convert_expiry_to_day($args);
+    die "Must pass two dates [from, to] to get volatility." if (not($args->{from} and $args->{to}));
 
-    my $vol;
-    if ($args->{delta}) {
+    my %internal_args = %{$args};
+    $internal_args{days} = ($internal_args{to}->epoch - $internal_args{from}->epoch) / 86400;
+    delete $internal_args{to};
+    delete $internal_args{from};
 
-        # we are handling delta seperately because it involves
-        # a lot more steps to calculate vol for a delta point
-        # on a moneyness surface
-        $vol = $self->_calculate_vol_for_delta({
-            delta => $args->{delta},
-            days  => $args->{days},
-        });
-    } else {
-        my $sought_point =
-              $args->{strike}
-            ? $args->{strike} / $self->spot_reference * 100
-            : $args->{moneyness};
+    die "Argument 'days' must be positive, non-zero number." if $internal_args{days} <= 0;
 
-        my $calc_args = {
-            sought_point => $sought_point,
-            days         => $args->{days}};
-        $vol = $self->SUPER::get_volatility($calc_args);
+    # we are handling delta seperately because it involves
+    # a lot more steps to calculate vol for a delta point
+    # on a moneyness surface
+    return $self->_calculate_vol_for_delta(\%internal_args) if $internal_args{delta};
+
+    my $moneyness =
+          $internal_args{strike}
+        ? $internal_args{strike} / $self->spot_reference * 100
+        : $internal_args{moneyness};
+
+    die "Sought point must be a number." if not looks_like_number($moneyness);
+    die "Sought point must be a positive number." if $moneyness < 0;
+
+    my $smile = $self->get_smile($internal_args{days});
+
+    return $smile->{$moneyness} if $smile->{$moneyness};
+
+    return $self->interpolate({
+        smile        => $smile,
+        sought_point => $moneyness,
+    });
+}
+
+=head2 get_smile
+
+Get the smile for specific day.
+
+Usage:
+
+    my $smile = $vol_surface->get_smile($days);
+
+=cut
+
+sub get_smile {
+    my ($self, $day) = @_;
+
+    die("day[$day] must be a number.")
+        unless looks_like_number($day);
+
+    my $surface = $self->surface;
+    my $smile = $surface->{$day}{smile} // $self->_compute_and_set_smile($day);
+
+    if (not $self->_is_valid_volatility_smile($smile)) {
+        $self->validation_error("Invalid smile volatility on smile calculated on day[$day] for " . $self->symbol);
     }
 
-    return $vol;
+    return $smile;
+}
+
+sub _compute_and_set_smile {
+    my ($self, $day) = @_;
+
+    my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_smile);
+    my $method =
+        ($self->_is_between($day, \@points))
+        ? '_interpolate_smile'
+        : '_extrapolate_smile';
+    my $smile = $self->$method($day, \@points);
+
+    $self->set_smile({
+        days  => $day,
+        smile => $smile
+    });
+
+    return $smile;
+}
+
+sub _interpolate_smile {
+    my ($self, $seek, $points) = @_;
+
+    my $surface          = $self->surface;
+    my $first_point      = $points->[0];
+    my $second_point     = $points->[1];
+    my $interpolate_func = $self->_market_maturities_interpolation_function($seek, $first_point, $second_point);
+    my $interpolated_smile;
+
+    foreach my $smile_point (@{$self->smile_points}) {
+        my $first_iv  = $surface->{$first_point}->{smile}->{$smile_point};
+        my $second_iv = $surface->{$second_point}->{smile}->{$smile_point};
+        $interpolated_smile->{$smile_point} = $interpolate_func->($first_iv, $second_iv);
+    }
+
+    return $interpolated_smile;
+}
+
+sub _extrapolate_smile {
+    my ($self, $seek, $points) = @_;
+
+    my $index = $seek > max(@$points) ? -1 : 0;
+
+    # we do not extrapolate for moneyness smiles. We will take the market points at both ends.
+    return $self->surface->{$self->original_term_for_smile->[$index]}->{smile};
+}
+
+sub _market_maturities_interpolation_function {
+    my ($self, $T, $T1, $T2) = @_;
+
+    # Implements interpolation over time based on the way Iain M Clark does
+    # it in Foreign Exchange Option Pricing, A Practitioner's Guide, page 70.
+    my $effective_date = $self->effective_date;
+    my $day_in_seconds = 86400;
+
+    # Setting it to end of day. That's why we need to minus 1 second.
+    my %dates = (
+        T  => $effective_date->plus_time_interval($T * $day_in_seconds - 1),
+        T1 => $effective_date->plus_time_interval($T1 * $day_in_seconds - 1),
+        T2 => $effective_date->plus_time_interval($T2 * $day_in_seconds - 1),
+    );
+
+    my $tau1 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T}) / 365;
+    my $tau2 = $self->builder->build_trading_calendar->weighted_days_in_period($dates{T1}, $dates{T2}) / 365;
+
+    warn(     'Error in volsurface['
+            . $self->recorded_date->datetime
+            . '] for symbol['
+            . $self->underlying_config->symbol
+            . '] for maturity['
+            . $T
+            . '] points ['
+            . $T1 . ','
+            . $T2 . "]\n")
+        unless $tau2;
+
+    return sub {
+        my ($vol1, $vol2) = @_;
+        return sqrt(($tau1 / $tau2) * ($T2 / $T) * $vol2**2 + (($tau2 - $tau1) / $tau2) * ($T1 / $T) * $vol1**2);
+    };
 }
 
 =head2 interpolate
@@ -224,37 +256,42 @@ sub interpolate {
     my ($self, $args) = @_;
 
     my $method = keys %{$args->{smile}} < 5 ? 'quadratic' : 'cubic';
-    my $interpolator = Math::Function::Interpolator->new(points => $args->{smile});
 
-    return $interpolator->$method($args->{sought_point});
+    return Math::Function::Interpolator->new(points => $args->{smile})->$method($args->{sought_point});
 }
 
-=head2 set_corresponding_deltas
+=head2 get_market_rr_bf
 
-Since we allow getting volatility for a particular delta point
-on a moneyness surface, here is how you could cache it.
-
-    $moneyness->set_corresponding_deltas(7, {25 => 0.1, 50 => 0.2, 75 => 0.3});
+Returns the rr and bf values for a given day
 
 =cut
 
-sub set_corresponding_deltas {
-    my ($self, $days, $smile) = @_;
-
-    my $deltas = $self->corresponding_deltas;
-    $deltas->{$days} = $smile;
-
-    return;
-}
-
-# rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
-override get_market_rr_bf => sub {
+sub get_market_rr_bf {
     my ($self, $day) = @_;
 
+# rr and bf only make sense in delta term. Here we convert the smile to a delta smile.
     my %smile = map { $_ => $self->_calculate_vol_for_delta({delta => $_, days => $day}) } qw(25 50 75);
 
     return $self->get_rr_bf_for_smile(\%smile);
-};
+}
+
+=head2 get_smile_expiries
+
+An array reference of that contains expiry dates for smiles on the volatility surface.
+
+=cut
+
+sub get_smile_expiries {
+    my $self = shift;
+
+    my $raw_surface    = $self->surface;
+    my $effective_date = $self->effective_date;
+    my $close          = $self->calendar->standard_closing_on($effective_date);
+
+    die 'Attempt to update volatility surface for ' . $self->symbol . ' when the exchange is closed' unless $close;
+
+    return [map { $effective_date->plus_time_interval($_ . 'd' . $close->seconds_after_midnight . 's') } @{$self->original_term_for_smile}];
+}
 
 ## PRIVATE ##
 
@@ -263,14 +300,7 @@ sub _calculate_vol_for_delta {
 
     my $delta = $args->{delta};
     my $days  = $args->{days};
-    my $smile;
-
-    if (exists $self->corresponding_deltas->{$days}) {
-        $smile = $self->corresponding_deltas->{$days};
-    } else {
-        $smile = $self->_convert_moneyness_smile_to_delta($days);
-        $self->set_corresponding_deltas($days, $smile);
-    }
+    my $smile = $self->_convert_moneyness_smile_to_delta($days);
 
     return $smile->{$delta}
         ? $smile->{$delta}
@@ -311,13 +341,21 @@ sub _convert_moneyness_smile_to_delta {
 
     my %strikes =
         map { get_strike_for_moneyness({moneyness => $_ / 100, spot => $self->spot_reference,}) => $moneyness_smile->{$_} } keys %$moneyness_smile;
+
+    my $tiy    = $days / 365;
+    my $r_rate = $self->builder->build_interest_rate->interest_rate_for($tiy);
+    my $q_rate = $self->builder->build_dividend->dividend_rate_for($tiy);
     my %deltas;
     foreach my $strike (keys %strikes) {
         my $vol   = $strikes{$strike};
-        my $delta = $self->_convert_strike_to_delta({
-            strike => $strike,
-            days   => $days,
-            vol    => $vol
+        my $delta = 100 * get_delta_for_strike({
+            strike           => $strike,
+            atm_vol          => $vol,
+            t                => $tiy,
+            spot             => $self->spot_reference,
+            r_rate           => $r_rate,
+            q_rate           => $q_rate,
+            premium_adjusted => $self->underlying_config->market_convention->{delta_premium_adjusted},
         });
         $deltas{$delta} = $vol;
     }
@@ -325,95 +363,126 @@ sub _convert_moneyness_smile_to_delta {
     return \%deltas,;
 }
 
-sub _convert_strike_to_delta {
-    my ($self, $args) = @_;
-    my ($days, $vol, $strike) = @{$args}{'days', 'vol', 'strike'};
-    my $tiy     = $days / 365;
-    my $builder = $self->builder;
-
-    return 100 * get_delta_for_strike({
-        strike           => $strike,
-        atm_vol          => $vol,
-        t                => $tiy,
-        spot             => $self->spot_reference,
-        r_rate           => $builder->build_interest_rate->interest_rate_for($tiy),
-        q_rate           => $builder->build_dividend->dividend_rate_for($tiy),
-        premium_adjusted => $self->underlying_config->market_convention->{delta_premium_adjusted},
-    });
+sub _max_allowed_term {
+    return 750;
 }
 
-sub _extrapolate_smile_down {
+sub _max_difference_between_smile_points {
+    return 100;
+}
+
+sub _admissible_check {
     my $self = shift;
 
-    my $first_market_point = $self->original_term_for_smile->[0];
+    my $underlying_config = $self->underlying_config;
+    my $builder           = $self->builder;
+    my $S                 = $self->spot_reference;
+    my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
+    my @expiries          = @{$self->get_smile_expiries};
+    my @tenors            = @{$self->original_term_for_smile};
+    my $now               = Date::Utility->new;
 
-    return $self->surface->{$first_market_point}->{smile};
-}
+    for (my $i = 1; $i <= $#expiries; $i++) {
+        my $day    = $tenors[$i - 1];
+        my $expiry = $expiries[$i];
 
-=head2 clone
+        die("Invalid tenor[$day] with expiry[" . $expiry->date . "] on surface. Current date[" . $now->date . ']')
+            if ($expiry->days_between($now) <= 0);
 
-USAGE:
+        my $adjustment;
+        if ($underlying_config->market_prefer_discrete_dividend) {
+            $adjustment = $builder->build_dividend->dividend_adjustments_for_period({
+                start => $now,
+                end   => $expiry,
+            });
+            $S += $adjustment->{spot};
+        }
 
-  my $clone = $s->clone({
-    surface => $my_new_surface,
-    cutoff  => $my_new_cutoff,
-  });
+        my $t     = ($expiry->epoch - $now->epoch) / (365 * 86400);
+        my $r     = $builder->build_interest_rate->interest_rate_for($t);
+        my $q     = ($underlying_config->market_prefer_discrete_dividend) ? 0 : $builder->build_dividend->dividend_rate_for($t);
+        my $smile = $self->surface->{$day}->{smile};
 
-Returns a new Quant::Framework::VolSurface instance. You can pass overrides to override an attribute value as it is on the original surface.
+        my @volatility_level = sort { $a <=> $b } keys %{$smile};
+        my $first_vol_level  = $volatility_level[0];
+        my $last_vol_level   = $volatility_level[-1];
 
-=cut
+        my %prev;
 
-sub clone {
-    my ($self, $args) = @_;
+        foreach my $vol_level (@volatility_level) {
+            my $vol     = $smile->{$vol_level};
+            my $barrier = $vol_level / 100 * $S;
 
-    my %clone_args;
-    %clone_args = %$args if $args;
+            if ($underlying_config->market_prefer_discrete_dividend) {
+                $barrier += $adjustment->{barrier};
+            }
 
-    $clone_args{spot_reference} = $self->spot_reference
-        if (not exists $clone_args{spot_reference});
-    $clone_args{underlying_config} = $self->underlying_config
-        if (not exists $clone_args{underlying_config});
-    $clone_args{cutoff} = $self->cutoff
-        if (not exists $clone_args{cutoff});
+            my $prob = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
+            my $slope;
 
-    if (not exists $clone_args{surface}) {
-        my $orig_surface = dclone($self->surface);
-        my %surface_to_clone = map { $_ => $orig_surface->{$_} } @{$self->original_term_for_smile};
-        $clone_args{surface} = \%surface_to_clone;
+            if (exists $prev{prob}) {
+                $slope = ($prob - $prev{prob}) / ($vol_level - $prev{vol_level});
+
+                # Admissible Check 1.
+                # For moneyness surface, the strike(prob) is increasing(decreasing) across moneyness point, hence the slope is negative
+                if ($slope >= 0.0) {
+                    die(      "Admissible check 1 failure for symbol["
+                            . $self->symbol
+                            . "] maturity[$day]. BS digital call price decreases between $prev{vol_level} and "
+                            . $vol_level);
+                }
+            }
+
+            %prev = (
+                slope     => $slope,
+                prob      => $prob,
+                vol_level => $vol_level,
+            );
+
+            next
+                if ($vol_level == $first_vol_level
+                || $vol_level == $last_vol_level);
+
+            $barrier = $vol_level / 100 * $S;
+            my $h = (2.0 / 100) * $S;
+
+            my %vol_period = (
+                from => $self->recorded_date,
+                to   => $expiry,
+            );
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level - 2),
+                %vol_period,
+            });
+            my $bet_minus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier - $h, $t, $r, $r - $q, $vol);
+
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level),
+                %vol_period,
+            });
+            my $bet = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier, $t, $r, $r - $q, $vol);
+
+            $vol = $self->get_volatility({
+                moneyness => ($vol_level + 2),
+                %vol_period,
+            });
+            my $bet_plus_h = Math::Business::BlackScholes::Binaries::vanilla_call($S, $barrier + $h, $t, $r, $r - $q, $vol);
+
+            ## The actual finite difference formula has a / $h**2, but since we're checking
+            ## for negativity, we don't need it. Also, we introducted an error margin to allow
+            ## surfaces that are close to passing through.
+            my $convexity_flag = $bet_minus_h - 2 * $bet + $bet_plus_h;
+            if ($convexity_flag < -0.009) {
+                die("Admissible check 2 failure for maturity[$day] strike center[$vol_level] convexity value is [$convexity_flag].");
+            }
+        }
     }
 
-    $clone_args{recorded_date} = $self->recorded_date
-        if (not exists $clone_args{recorded_date});
-    $clone_args{print_precision} = $self->print_precision
-        if (not exists $clone_args{print_precision});
-    $clone_args{original_term} = dclone($self->original_term)
-        if (not exists $clone_args{original_term});
-
-    $clone_args{chronicle_reader} = $self->chronicle_reader;
-    $clone_args{chronicle_writer} = $self->chronicle_writer;
-
-    return $self->meta->name->new(\%clone_args);
+    return;
 }
 
-=head2 cutoff
-
-default to closing on the underlying.
-
-=cut
-
-has cutoff => (
-    is         => 'ro',
-    isa        => 'qf_cutoff_helper',
-    lazy_build => 1,
-    coerce     => 1,
-);
-
-sub _build_cutoff {
-    my $self = shift;
-
-    my $date = $self->for_date ? $self->for_date : Date::Utility->new;
-
-    return Quant::Framework::VolSurface::Cutoff->new('UTC ' . $self->calendar->standard_closing_on($date)->time_hhmm);
+sub _validation_methods {
+    return qw(_validate_age _validate_structure _validate_identical_surface _validate_volatility_jumps _admissible_check);
 }
 
 no Moose;

@@ -62,7 +62,6 @@ subtest 'weight on' => sub {
     is $metal->simple_weight_on($weekend), 0, 'XAUUSD weight is zero on weekend';
     my $pseudo_holiday_date = Date::Utility->new('2013-12-24');
     note($pseudo_holiday_date->date . ' is a pseudo holiday');
-    $DB::single = 1;
     is $forex->simple_weight_on($pseudo_holiday_date), 0.5, '0.5 for pseudo holiday';
     is $metal->simple_weight_on($pseudo_holiday_date), 0.5, '0.5 for pseudo holiday';
     my $trading_date = Date::Utility->new('2013-12-2');
