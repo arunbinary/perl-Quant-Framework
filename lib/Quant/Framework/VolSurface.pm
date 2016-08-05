@@ -556,43 +556,6 @@ sub get_day_for_tenor {
     return $day;
 }
 
-=head2 set_smile
-
-Set a smile into the volatility surface
-Input: day and smile (key: smile_point ; value: volatility)
-
-Usage:
-
-    $vol_surface->set_smile($day, \%smile);
-
-=cut
-
-sub set_smile {
-    my ($self, $args) = @_;
-
-    my $day = $args->{days};
-    die("day[$day] must be a number.") if not looks_like_number($day) or $day <= 0;
-
-    my $surface    = $self->surface;
-    my $smile      = $args->{smile};
-    my $vol_spread = $self->get_smile_spread($day);
-
-    # throws exception on error.
-    if (not $self->_is_valid_volatility_smile($smile)) {
-        die("Invalid smile volatility on $day for " . $self->symbol);
-    }
-
-    $surface->{$day} = {
-        smile      => $smile,
-        vol_spread => $vol_spread,
-    };
-
-    # We just changed the surface, so clear the caches.
-    $self->clear_term_by_day;
-
-    return;
-}
-
 =head2 get_rr_bf_for_smile
 
 Return the rr and bf values for a given smile
