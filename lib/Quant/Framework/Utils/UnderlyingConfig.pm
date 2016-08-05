@@ -236,18 +236,6 @@ has default_dividend_rate => (
     default => undef,
 );
 
-=head2 default_interest_rate  
-
-Default interest rate of this underlying (If this is not set, Quant::Framework::Currency will be 
-used to lookup interest rate)
-
-=cut
-
-has default_interest_rate => (
-    is      => 'ro',
-    default => undef,
-);
-
 =head2 default_volatility_duration
 
 Default duration for this underlying when getting volatility.
