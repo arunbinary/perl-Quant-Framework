@@ -178,7 +178,12 @@ subtest 'Unit test tools.' => sub {
             chronicle_writer  => $chronicle_w
         });
 
-    lives_ok { $sample_surface->is_valid } 'Our default sample surface is valid.';
+    my $module = Test::MockModule->new('Quant::Framework::Spot::DatabaseAPI');
+    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new({
+                    epoch => time,
+                    symbol => 'frxEURUSD',
+                    quote => 1.0}); });
+    ok  $sample_surface->is_valid, 'Our default sample surface is valid.';
 };
 
 subtest _validate_age => sub {
@@ -210,6 +215,13 @@ subtest _validate_age => sub {
             chronicle_reader  => $chronicle_r,
             chronicle_writer  => $chronicle_w
         });
+
+    my $module = Test::MockModule->new('Quant::Framework::Spot::DatabaseAPI');
+    $module->mock('tick_at', sub { Quant::Framework::Spot::Tick->new({
+                    epoch => time,
+                    symbol => 'frxEURUSD',
+                    quote => 1.0}); });
+
     ok $sample->is_valid, 'valid if age is less than 4 hours';
 };
 

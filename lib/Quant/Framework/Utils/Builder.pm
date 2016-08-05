@@ -13,6 +13,8 @@ use Quant::Framework::Currency;
 use Quant::Framework::Asset;
 use Quant::Framework::Dividend;
 use Quant::Framework::ExpiryConventions;
+use Quant::Framework::Spot;
+use Quant::Framework::Spot::DatabaseAPI;
 use Quant::Framework::Utils::UnderlyingConfig;
 
 =head2 for_date
@@ -177,6 +179,37 @@ sub build_currency {
         for_date         => $self->for_date,
         chronicle_reader => $self->chronicle_reader,
         chronicle_writer => $self->chronicle_writer,
+    });
+}
+
+=head2 build_feed_api
+
+Returns an instance of Quant::Framework::Spot::DatabaseAPI which can be used
+to read historical spot values
+
+=cut
+
+sub build_feed_api {
+    my $self = shift;
+
+    return Quant::Framework::Spot::DatabaseAPI->new($self->underlying_config->spot_db_args);
+}
+
+=head2 build_spot
+
+Returns an instance of Quant::Framework::Spot which can be used to read live or historical
+spot
+
+=cut
+
+sub build_spot {
+    my $self = shift;
+
+    return Quant::Framework::Spot->new({
+        for_date          => $self->for_date,
+        underlying_config => $self->underlying_config,
+        calendar          => $self->build_trading_calendar,
+        feed_api          => $self->build_feed_api,
     });
 }
 

@@ -24,3 +24,5 @@ Revision history for Quant-Framework
         Removing locale parameter from TradingCalendar and UnderlyingConfig
 0.27    30 Jun 2016
         Remove unsed cache
+0.30    25 Jul 2016
+        Adding Spot and related modules

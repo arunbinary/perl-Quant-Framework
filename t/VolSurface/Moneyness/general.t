@@ -13,7 +13,8 @@ use Quant::Framework::VolSurface::Moneyness;
 
 my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
 my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config('HSI');
-$underlying_config->{spot} = 100;
+
+my $underlying_config_spot = 100;
 
 Quant::Framework::Utils::Test::create_doc(
     'volsurface_moneyness',
@@ -50,7 +51,7 @@ subtest 'get available strikes on surface' => sub {
         '1W' => {smile => {100 => 0.2}}};
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
-        spot_reference    => $underlying_config->spot,
+        spot_reference    => $underlying_config_spot,
         surface           => $surface,
         recorded_date     => $now,
         chronicle_reader  => $chronicle_r,

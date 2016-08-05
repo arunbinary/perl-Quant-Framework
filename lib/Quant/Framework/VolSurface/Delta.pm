@@ -310,7 +310,7 @@ sub _convert_moneyness_to_delta {
 
     $args->{strike} = get_strike_for_moneyness({
         moneyness => $args->{moneyness},
-        spot      => $self->underlying_config->spot
+        spot      => $self->builder->build_spot->spot_quote,
     });
 
     delete $args->{moneyness};
@@ -334,7 +334,7 @@ sub _ensure_conversion_args {
     my $underlying_config = $self->underlying_config;
 
     $new_args{t} ||= ($args->{to}->epoch - $args->{from}->epoch) / (365 * 86400);
-    $new_args{spot}             ||= $underlying_config->spot;
+    $new_args{spot}             ||= $self->builder->build_spot->spot_quote;
     $new_args{premium_adjusted} ||= $underlying_config->{market_convention}->{delta_premium_adjusted};
     $new_args{r_rate}           ||= $self->builder->build_interest_rate->interest_rate_for($new_args{t});
     $new_args{q_rate}           ||= $self->builder->build_dividend->dividend_rate_for($new_args{t});
@@ -420,7 +420,7 @@ sub _admissible_check {
 
     my $underlying_config = $self->underlying_config;
     my $builder           = $self->builder;
-    my $S                 = $underlying_config->spot;
+    my $S                 = $self->builder->build_spot->spot_quote;
     my $premium_adjusted  = $underlying_config->{market_convention}->{delta_premium_adjusted};
     my @expiries          = @{$self->get_smile_expiries};
     my @tenors            = @{$self->original_term_for_smile};
