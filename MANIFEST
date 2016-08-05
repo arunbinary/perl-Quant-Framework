@@ -1,5 +1,6 @@
 .travis.yml
 Changes
+'Forward Vol doc.docx'
 lib/Quant/Framework.pm
 lib/Quant/Framework/Asset.pm
 lib/Quant/Framework/CorporateAction.pm
