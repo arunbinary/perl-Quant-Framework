@@ -2,7 +2,7 @@ package Quant::Framework::Asset;
 
 =head1 NAME
 
-Quant::Framework::Asset - A module to save/load dividends 
+Quant::Framework::Asset
 
 =head1 DESCRIPTION
 
