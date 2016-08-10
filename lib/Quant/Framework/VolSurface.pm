@@ -167,11 +167,20 @@ sub _build_surface {
             });
             my $day = $vol_expiry_date->days_between($effective_date);
 
-            $surface_data{$day} = delete $surface_data{$maturity};
+            $surface_data{$day}        = delete $surface_data{$maturity};
             $surface_data{$day}{tenor} = $maturity;
+            $maturity                  = $day;
         } elsif ($maturity !~ /^\d+$/) {
             # Don't die here. This surface will be invalidated later.
             warn("Unknown tenor[$maturity] found on volatility surface for " . $self->symbol);
+        }
+
+        #check and add min_vol_spread for shorter term vol_spreads
+        next if (not exists $surface_data{$maturity}{vol_spread} or $maturity >= 30);
+        foreach my $point (keys %{$surface_data{$maturity}{vol_spread}}) {
+            if ($self->can('min_vol_spread') and $surface_data{$maturity}{vol_spread}{$point} < $self->min_vol_spread) {
+                $surface_data{$maturity}{vol_spread}{$point} = $self->min_vol_spread;
+            }
         }
     }
 
@@ -459,19 +468,6 @@ sub get_smile_spread {
     my ($self, $day) = @_;
 
     my $surface = $self->surface;
-    # if a surface has a minimum volatility spread that needs to be applied,
-    # we will do the check.
-    if ($self->can('min_vol_spread')) {
-        foreach my $day (keys %{$surface}) {
-            #check and add min_vol_spread for shorter term vol_spreads
-            next if (not exists $surface->{$day}{vol_spread} or $day >= 30);
-            foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
-                if ($surface->{$day}{vol_spread}{$point} < $self->min_vol_spread) {
-                    $surface->{$day}{vol_spread}{$point} = $self->min_vol_spread;
-                }
-            }
-        }
-    }
 
     # autovivification
     return $surface->{$day}{vol_spread} if (exists $surface->{$day} and exists $surface->{$day}{vol_spread});
