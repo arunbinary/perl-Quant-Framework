@@ -286,7 +286,7 @@ sub dividend_adjustments_for_period {
         my $adj_present_value = $adjustment * exp(-$r_rate * $duration_in_year);
         my $s_adj = ($duration_in_sec - $sec_away_from_action) / ($duration_in_sec) * $adj_present_value;
         $dS -= $s_adj;
-        my $k_adj = $sec_away_from_action / ($duration_in_sec) * $adj_present_value;
+        my $k_adj = ($sec_away_from_action / ($duration_in_sec)) * $adj_present_value;
         $dK += $k_adj;
     }
 
