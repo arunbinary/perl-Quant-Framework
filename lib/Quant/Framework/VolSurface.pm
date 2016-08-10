@@ -173,6 +173,7 @@ sub _build_surface {
         } elsif ($maturity !~ /^\d+$/) {
             # Don't die here. This surface will be invalidated later.
             warn("Unknown tenor[$maturity] found on volatility surface for " . $self->symbol);
+            next;
         }
 
         #check and add min_vol_spread for shorter term vol_spreads
