@@ -99,4 +99,25 @@ subtest 'get_market_rr_bf' => sub {
     } 'get_market_rr_bf';
 };
 
+subtest 'minimum volatility spread' => sub {
+    my $surface = {
+        'ON' => {smile => {100 => 0.1}, vol_spread => {100 => 0.03}},
+        '2M' => {smile => {100 => 0.2}, vol_spread => {100 => 0.03}},
+    };
+    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
+        underlying_config => $underlying_config,
+        surface           => $surface,
+        recorded_date     => Date::Utility->new,
+        spot_reference    => 100,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+    );
+
+    ok exists $volsurface->surface->{1}, 'converted to 1 day for ON';
+    ok exists $volsurface->surface->{61}, 'converted to 61 day for 2M';
+    is $volsurface->get_smile_spread(1)->{100}, 0.031, 'get minimum smile spread of 0.031';
+    is $volsurface->get_smile_spread(29)->{100}, 0.031, 'get minimum smile spread of 0.031';
+    ok $volsurface->get_smile_spread(31)->{100} < 0.031, 'not bound to minimum of 0.031 after 30 days';
+};
+
 done_testing;
