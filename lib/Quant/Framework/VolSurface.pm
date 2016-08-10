@@ -497,7 +497,7 @@ sub _compute_and_set_smile_spread {
                 $points[0] => $surface->{$points[0]}->{vol_spread}->{$spread_point},
                 $points[1] => $surface->{$points[1]}->{vol_spread}->{$spread_point},
             })->linear($day);
-        $spread = $self->min_vol_spread if ($self->can('min_vol_spread') and $spread < $self->min_vol_spread);
+        $spread = $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
         $smile_spread{$spread_point} = $spread;
     }
 
