@@ -467,7 +467,7 @@ sub get_smile_spread {
             next if (not exists $surface->{$day}{vol_spread} or $day >= 30);
             foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
                 if ($surface->{$day}{vol_spread}{$point} < $self->min_vol_spread) {
-                    $surface->{$day}{vol_spread}{$point} += $self->min_vol_spread;
+                    $surface->{$day}{vol_spread}{$point} = $self->min_vol_spread;
                 }
             }
         }
@@ -490,14 +490,16 @@ sub _compute_and_set_smile_spread {
         return $surface->{$index}{vol_spread};
     }
 
-    my %smile_spread = map {
-        $_ => Math::Function::Interpolator->new(
+    my %smile_spread;
+    foreach my $spread_point (@{$self->spread_points}) {
+        my $spread = Math::Function::Interpolator->new(
             points => {
-                $points[0] => $surface->{$points[0]}->{vol_spread}->{$_},
-                $points[1] => $surface->{$points[1]}->{vol_spread}->{$_},
-            }
-            )->linear($day)
-    } @{$self->spread_points};
+                $points[0] => $surface->{$points[0]}->{vol_spread}->{$spread_point},
+                $points[1] => $surface->{$points[1]}->{vol_spread}->{$spread_point},
+            })->linear($day);
+        $spread = $self->min_vol_spread if ($self->can('min_vol_spread') and $spread < $self->min_vol_spread);
+        $smile_spread{$spread_point} = $spread;
+    }
 
     $self->surface->{$day}{vol_spread} = \%smile_spread;
 
