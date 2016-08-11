@@ -155,7 +155,13 @@ sub get_smile {
         unless looks_like_number($day);
 
     my $surface = $self->surface;
-    my $smile = $surface->{$day}{smile} // $self->_compute_and_set_smile($day);
+    my $smile;
+    # autovivification
+    if (exists $surface->{$day} and exists $surface->{$day}{smile}) {
+        $smile = $surface->{$day}{smile};
+    } else {
+        $smile = $self->_compute_smile($day);
+    }
 
     if (not $self->_is_valid_volatility_smile($smile)) {
         $self->validation_error("Invalid smile volatility on smile calculated on day[$day] for " . $self->symbol);
@@ -164,7 +170,7 @@ sub get_smile {
     return $smile;
 }
 
-sub _compute_and_set_smile {
+sub _compute_smile {
     my ($self, $day) = @_;
 
     my @points = $self->_get_points_to_interpolate($day, $self->original_term_for_smile);
@@ -173,11 +179,6 @@ sub _compute_and_set_smile {
         ? '_interpolate_smile'
         : '_extrapolate_smile';
     my $smile = $self->$method($day, \@points);
-
-    $self->set_smile({
-        days  => $day,
-        smile => $smile
-    });
 
     return $smile;
 }
