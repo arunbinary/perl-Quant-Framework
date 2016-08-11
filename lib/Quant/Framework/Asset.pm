@@ -124,7 +124,12 @@ has recorded_date => (
 
 sub _build_recorded_date {
     my $self = shift;
-    return Date::Utility->new($self->document->{date});
+
+    if (defined $self->document) {
+        return Date::Utility->new($self->document->{date});
+    }
+
+    return Date::Utility->new(undef);
 }
 
 =head2 discrete_points
