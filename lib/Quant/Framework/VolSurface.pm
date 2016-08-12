@@ -167,21 +167,11 @@ sub _build_surface {
             });
             my $day = $vol_expiry_date->days_between($effective_date);
 
-            $surface_data{$day}        = delete $surface_data{$maturity};
+            $surface_data{$day} = delete $surface_data{$maturity};
             $surface_data{$day}{tenor} = $maturity;
-            $maturity                  = $day;
         } elsif ($maturity !~ /^\d+$/) {
             # Don't die here. This surface will be invalidated later.
             warn("Unknown tenor[$maturity] found on volatility surface for " . $self->symbol);
-            next;
-        }
-
-        #check and add min_vol_spread for shorter term vol_spreads
-        next if (not exists $surface_data{$maturity}{vol_spread} or $maturity >= 30);
-        foreach my $point (keys %{$surface_data{$maturity}{vol_spread}}) {
-            if ($self->can('min_vol_spread') and $surface_data{$maturity}{vol_spread}{$point} < $self->min_vol_spread) {
-                $surface_data{$maturity}{vol_spread}{$point} = $self->min_vol_spread;
-            }
         }
     }
 
@@ -409,6 +399,7 @@ around BUILDARGS => sub {
 =head2 get_spread
 
 Spread is ask-bid difference which can be stored for different tenor and atm/max.
+This is value could be adjusted for pricing under certain conditions.
 
 USAGE:
 
@@ -428,40 +419,27 @@ sub get_spread {
     $day = $self->get_day_for_tenor($day)
         if ($day =~ /^(?:ON|\d[WMY])$/);    # if day looks like tenor
 
-    return $self->_get_atm_spread($day)              if $sought_point eq 'atm';
-    return $self->_get_max_spread_from_surface($day) if $sought_point eq 'max';
-    die 'Unrecognized spread type ' . $sought_point;
-}
-
-sub _get_atm_spread {
-    my ($self, $day) = @_;
-
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-
-    if (exists $surface->{$day}) {
-        return $surface->{$day}{vol_spread}{$atm_spread_point};
-    }
-
-    my $smile_spread = $self->get_smile_spread($day);
-    return $smile_spread->{$atm_spread_point};
-}
-
-sub _get_max_spread_from_surface {
-    my ($self, $day) = @_;
-
     my $surface = $self->surface;
-    if (exists $surface->{$day}) {
-        return max(values %{$surface->{$day}{vol_spread}});
+    # prevent autovivification
+    my $smile_spread = exists $surface->{$day} and exists $surface->{$day}{vol_spread} ? $surface->{$day}{vol_spread} : {};
+    $smile_spread = $self->get_smile_spread($day) unless keys %$smile_spread;
+
+    my $spread;
+    if ($sought_point eq 'atm') {
+        $spread = $smile_spread->{$self->atm_spread_point};
+    } elsif ($sought_point eq 'max') {
+        $spread = max(values %$smile_spread);
     }
 
-    my $smile_spread = $self->get_smile_spread($day);
-    return max(values %$smile_spread);
+    die 'Unrecognized spread type ' . $sought_point;
+    return $spread + $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
+    return $spread;
 }
 
 =head2 get_smile_spread
 
 Returns the ask/bid spread for smile of this volatility surface
+This is the raw spread.
 
 =cut
 
@@ -487,16 +465,14 @@ sub _compute_and_set_smile_spread {
         return $surface->{$index}{vol_spread};
     }
 
-    my %smile_spread;
-    foreach my $spread_point (@{$self->spread_points}) {
-        my $spread = Math::Function::Interpolator->new(
+    my %smile_spread = map {
+        $_ => Math::Function::Interpolator->new(
             points => {
-                $points[0] => $surface->{$points[0]}->{vol_spread}->{$spread_point},
-                $points[1] => $surface->{$points[1]}->{vol_spread}->{$spread_point},
-            })->linear($day);
-        $spread = $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
-        $smile_spread{$spread_point} = $spread;
-    }
+                $points[0] => $surface->{$points[0]}->{vol_spread}->{$_},
+                $points[1] => $surface->{$points[1]}->{vol_spread}->{$_},
+            }
+            )->linear($day)
+    } @{$self->spread_points};
 
     $self->surface->{$day}{vol_spread} = \%smile_spread;
 
