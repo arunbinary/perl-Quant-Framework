@@ -92,30 +92,6 @@ subtest 'get_surface_smile' => sub {
     ok !keys %{$surface->get_surface_smile(2)}, 'return empty hash if smile is not present on surface';
 };
 
-subtest set_smile => sub {
-    plan tests => 7;
-    my $surface = _get_surface();
-
-    my %args = (
-        smile => {
-            50 => 0.2,
-            25 => 0.1,
-            75 => 0.5
-        },
-        days => 4
-    );
-    ok(!exists $surface->surface->{4}, "smile does not exist on surface");
-    lives_ok { $surface->set_smile(\%args) } "can set_smile";
-    ok(exists $surface->surface->{4}, "smile exists on surface after set_smile");
-    my @a = @{$surface->original_term_for_smile};
-    foreach (@a) {
-        cmp_ok($_, '!=', 4, "the newly set smile is not in the original surface");
-    }
-
-    $args{days} = 'notnumber';
-    throws_ok { $surface->set_smile(\%args) } qr/must be a number./, 'throws exception when term/day set to surface is not a number';
-};
-
 subtest get_spread => sub {
     plan tests => 13;
 

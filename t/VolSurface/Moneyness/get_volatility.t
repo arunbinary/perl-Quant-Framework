@@ -155,7 +155,7 @@ subtest "get_vol for interpolated term structure" => sub {
     cmp_ok($vol, '>', 0.2848, "vol is larger than second point");
     ok(exists $v->get_smile(8)->{90}, "interpolated smile is saved on surface");
 
-    is(scalar keys %{$v->surface}, 3, "successfully added one smile on surface");
+    is(scalar keys %{$v->surface}, 2, "no smile added");
 };
 
 subtest "get_vol for a smile that has a single point" => sub {
@@ -208,7 +208,7 @@ subtest 'get_vol for term less than the available term on surface' => sub {
             })
     }
     'can get volatility for term less than the smallest term of the surface';
-    ok(exists $volsurface->surface->{1}, 'does not extrapolate smile');
+    ok(!exists $volsurface->surface->{1}, 'does not extrapolate smile');
     is($vol, $volsurface->surface->{7}->{smile}->{100}, "returns the correct vol from the smallest term's smile");
     lives_ok { $volsurface->get_market_rr_bf(1) } 'can get market_rr_bf for extrapolated smile';
 };
