@@ -101,8 +101,8 @@ subtest 'get_market_rr_bf' => sub {
 
 subtest 'minimum volatility spread' => sub {
     my $surface = {
-        'ON' => {smile => {100 => 0.1}, vol_spread => {100 => 0.03}},
-        '2M' => {smile => {100 => 0.2}, vol_spread => {100 => 0.03}},
+        'ON' => {smile => {100 => 0.1}, vol_spread => {100 => 0.03, 90 => 0.04}},
+        '2M' => {smile => {100 => 0.2}, vol_spread => {100 => 0.03, 90 => 0.02}},
     };
     my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
         underlying_config => $underlying_config,
@@ -112,12 +112,12 @@ subtest 'minimum volatility spread' => sub {
         chronicle_reader  => $chronicle_r,
         chronicle_writer  => $chronicle_w,
     );
-
-    ok exists $volsurface->surface->{1}, 'converted to 1 day for ON';
-    ok exists $volsurface->surface->{61}, 'converted to 61 day for 2M';
-    is $volsurface->get_smile_spread(1)->{100}, 0.031, 'get minimum smile spread of 0.031';
-    is $volsurface->get_smile_spread(29)->{100}, 0.031, 'get minimum smile spread of 0.031';
-    ok $volsurface->get_smile_spread(31)->{100} < 0.031, 'not bound to minimum of 0.031 after 30 days';
+    is $volsurface->get_smile_spread(1)->{100}, 0.03, 'returns untouched spread';
+    is $volsurface->get_smile_spread(29)->{100}, 0.03, 'returns untouched spread';
+    is $volsurface->get_spread({day => 29, sought_point => 'atm'}), 0.061, 'got the extra spread on top of raw spread';
+    is $volsurface->get_spread({day => 30, sought_point => 'atm'}), 0.03, 'no extra spread if duration is 30 days or more';
+    is $volsurface->get_spread({day => 1, sought_point => 'max'}), 0.04, 'got no extra spread is max is more than min spread';
+    is $volsurface->get_spread({day => 29, sought_point => 'max'}), 0.0310344827586207, 'got the extra spread on top of raw spread';
 };
 
 done_testing;

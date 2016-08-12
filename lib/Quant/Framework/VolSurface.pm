@@ -421,7 +421,7 @@ sub get_spread {
 
     my $surface = $self->surface;
     # prevent autovivification
-    my $smile_spread = exists $surface->{$day} and exists $surface->{$day}{vol_spread} ? $surface->{$day}{vol_spread} : {};
+    my $smile_spread = (exists $surface->{$day} and exists $surface->{$day}{vol_spread}) ? $surface->{$day}{vol_spread} : +{};
     $smile_spread = $self->get_smile_spread($day) unless keys %$smile_spread;
 
     my $spread;
