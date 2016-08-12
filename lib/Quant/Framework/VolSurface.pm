@@ -431,7 +431,7 @@ sub get_spread {
         $spread = max(values %$smile_spread);
     }
 
-    die 'Unrecognized spread type ' . $sought_point;
+    die 'Unrecognized spread type ' . $sought_point unless $spread;
     return $spread + $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
     return $spread;
 }
