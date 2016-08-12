@@ -422,16 +422,17 @@ sub get_spread {
     my $surface = $self->surface;
     # prevent autovivification
     my $smile_spread = (exists $surface->{$day} and exists $surface->{$day}{vol_spread}) ? $surface->{$day}{vol_spread} : +{};
-    $smile_spread = $self->get_smile_spread($day) unless keys %$smile_spread;
+    $smile_spread = $self->get_smile_spread($day) unless %$smile_spread;
 
     my $spread;
     if ($sought_point eq 'atm') {
         $spread = $smile_spread->{$self->atm_spread_point};
     } elsif ($sought_point eq 'max') {
         $spread = max(values %$smile_spread);
+    } else {
+        die 'Unrecognized spread type ' . $sought_point;
     }
 
-    die 'Unrecognized spread type ' . $sought_point unless $spread;
     return $spread + $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
     return $spread;
 }
