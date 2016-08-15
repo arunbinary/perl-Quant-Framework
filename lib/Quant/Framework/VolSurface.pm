@@ -399,6 +399,7 @@ around BUILDARGS => sub {
 =head2 get_spread
 
 Spread is ask-bid difference which can be stored for different tenor and atm/max.
+This is value could be adjusted for pricing under certain conditions.
 
 USAGE:
 
@@ -418,40 +419,28 @@ sub get_spread {
     $day = $self->get_day_for_tenor($day)
         if ($day =~ /^(?:ON|\d[WMY])$/);    # if day looks like tenor
 
-    return $self->_get_atm_spread($day)              if $sought_point eq 'atm';
-    return $self->_get_max_spread_from_surface($day) if $sought_point eq 'max';
-    die 'Unrecognized spread type ' . $sought_point;
-}
-
-sub _get_atm_spread {
-    my ($self, $day) = @_;
-
-    my $surface          = $self->surface;
-    my $atm_spread_point = $self->atm_spread_point;
-
-    if (exists $surface->{$day}) {
-        return $surface->{$day}{vol_spread}{$atm_spread_point};
-    }
-
-    my $smile_spread = $self->get_smile_spread($day);
-    return $smile_spread->{$atm_spread_point};
-}
-
-sub _get_max_spread_from_surface {
-    my ($self, $day) = @_;
-
     my $surface = $self->surface;
-    if (exists $surface->{$day}) {
-        return max(values %{$surface->{$day}{vol_spread}});
+    # prevent autovivification
+    my $smile_spread = (exists $surface->{$day} and exists $surface->{$day}{vol_spread}) ? $surface->{$day}{vol_spread} : +{};
+    $smile_spread = $self->get_smile_spread($day) unless %$smile_spread;
+
+    my $spread;
+    if ($sought_point eq 'atm') {
+        $spread = $smile_spread->{$self->atm_spread_point};
+    } elsif ($sought_point eq 'max') {
+        $spread = max(values %$smile_spread);
+    } else {
+        die 'Unrecognized spread type ' . $sought_point;
     }
 
-    my $smile_spread = $self->get_smile_spread($day);
-    return max(values %$smile_spread);
+    return $spread + $self->min_vol_spread if ($self->can('min_vol_spread') and $day < 30 and $spread < $self->min_vol_spread);
+    return $spread;
 }
 
 =head2 get_smile_spread
 
 Returns the ask/bid spread for smile of this volatility surface
+This is the raw spread.
 
 =cut
 
@@ -459,19 +448,6 @@ sub get_smile_spread {
     my ($self, $day) = @_;
 
     my $surface = $self->surface;
-    # if a surface has a minimum volatility spread that needs to be applied,
-    # we will do the check.
-    if ($self->can('min_vol_spread')) {
-        foreach my $day (keys %{$surface}) {
-            #check and add min_vol_spread for shorter term vol_spreads
-            next if (not exists $surface->{$day}{vol_spread} or $day >= 30);
-            foreach my $point (keys %{$surface->{$day}{vol_spread}}) {
-                if ($surface->{$day}{vol_spread}{$point} < $self->min_vol_spread) {
-                    $surface->{$day}{vol_spread}{$point} += $self->min_vol_spread;
-                }
-            }
-        }
-    }
 
     # autovivification
     return $surface->{$day}{vol_spread} if (exists $surface->{$day} and exists $surface->{$day}{vol_spread});
