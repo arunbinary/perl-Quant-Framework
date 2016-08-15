@@ -99,4 +99,25 @@ subtest 'get_market_rr_bf' => sub {
     } 'get_market_rr_bf';
 };
 
+subtest 'minimum volatility spread' => sub {
+    my $surface = {
+        'ON' => {smile => {100 => 0.1}, vol_spread => {100 => 0.03, 90 => 0.04}},
+        '2M' => {smile => {100 => 0.2}, vol_spread => {100 => 0.03, 90 => 0.02}},
+    };
+    my $volsurface = Quant::Framework::VolSurface::Moneyness->new(
+        underlying_config => $underlying_config,
+        surface           => $surface,
+        recorded_date     => Date::Utility->new,
+        spot_reference    => 100,
+        chronicle_reader  => $chronicle_r,
+        chronicle_writer  => $chronicle_w,
+    );
+    is $volsurface->get_smile_spread(1)->{100}, 0.03, 'returns untouched spread';
+    is $volsurface->get_smile_spread(29)->{100}, 0.03, 'returns untouched spread';
+    is $volsurface->get_spread({day => 29, sought_point => 'atm'}), 0.061, 'got the extra spread on top of raw spread';
+    is $volsurface->get_spread({day => 30, sought_point => 'atm'}), 0.03, 'no extra spread if duration is 30 days or more';
+    is $volsurface->get_spread({day => 1, sought_point => 'max'}), 0.04, 'got no extra spread is max is more than min spread';
+    is $volsurface->get_spread({day => 29, sought_point => 'max'}), 0.0310344827586207, 'got the extra spread on top of raw spread';
+};
+
 done_testing;
