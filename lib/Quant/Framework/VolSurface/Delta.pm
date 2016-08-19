@@ -132,7 +132,6 @@ sub get_volatility {
 
     # This sanity check prevents negative variance
     # This will happen when we are trying to price a contract that has expired but not settled.
-    # Yng Shan will fix the settlement problem.
     if ($args->{from}->epoch < $self->recorded_date->epoch) {
         $self->validation_error('Requesting a volatility for date in the past. Volatility surface date['
                 . $self->recorded_date->datetime
