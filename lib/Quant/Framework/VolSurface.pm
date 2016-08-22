@@ -160,6 +160,14 @@ sub _build_surface {
     # If the smile's day is given as a tenor, we convert
     # it to a day and add the tenor to the smile:
     foreach my $maturity (keys %surface_data) {
+        # if there's no data, delete it.
+        if (
+            not(   (exists $surface_data{$maturity}{smile} and %{$surface_data{$maturity}{smile}})
+                or (exists $surface_data{$maturity}{vol_spread} and %{$surface_data{$maturity}{vol_spread}})))
+        {
+            delete $surface_data{$maturity};
+            next;
+        }
         if ($maturity =~ /^(?:ON|\d{1,2}[WMY])$/) {
             my $vol_expiry_date = $expiry_conventions->vol_expiry_date({
                 from => $effective_date,
