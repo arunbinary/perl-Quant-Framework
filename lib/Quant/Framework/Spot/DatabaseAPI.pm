@@ -163,6 +163,7 @@ sub get_first_tick {
     }
 
     my $statement = $self->dbh->prepare_cached('SELECT * FROM get_tick_first($1, $2, $3, $4, $5)', {}, 5);
+
     $statement->bind_param(1, $underlying->system_symbol);
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
