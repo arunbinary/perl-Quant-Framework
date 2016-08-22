@@ -625,10 +625,6 @@ sub _validate_structure {
         if ($day !~ /^\d+$/) {
             die("Invalid day[$day] in volsurface for underlying[$system_symbol]. Not a positive integer.");
         }
-
-        if (not grep { exists $surface_hashref->{$day}->{$_} } qw(smile vol_spread)) {
-            die("Missing both smile and atm_spread (must have at least one) for day [$day] on underlying [$system_symbol]");
-        }
     }
 
     foreach my $day (grep { exists $surface_hashref->{$_}->{smile} } @days) {
