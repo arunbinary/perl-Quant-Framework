@@ -32,3 +32,5 @@ Revision history for Quant-Framework
         Remove set smile functionality
 0.33    12 Aug 2016
         Fixes minimum volatility spread bug.
+0.34    17 Aug 2016
+        Handles negative variance in get_volatility differently.
