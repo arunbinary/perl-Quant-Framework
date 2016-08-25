@@ -233,7 +233,6 @@ subtest '_validate_structure' => sub {
         chronicle_reader  => $chronicle_r,
         chronicle_writer  => $chronicle_w,
     );
-
     ok !$sample->is_valid, 'invalid if surface_data is empty';
     like($sample->validation_error, qr/Must be at least two maturities on vol surface/, 'No maturities on surface.');
 
@@ -241,7 +240,7 @@ subtest '_validate_structure' => sub {
             surface => {
                 1  => {smile => {50 => 0.2}},
                 3  => {smile => {50 => 0.2}},
-                -1 => {}}});
+                -1 => {smile => {50 => 0.2}}}});
     warning_like {
         ok !$sample->is_valid, 'invalid if term is negative';
     }
@@ -302,24 +301,6 @@ subtest '_validate_structure' => sub {
         });
     ok !$sample->is_valid, 'invalid if term is more than max allowed.';
     like($sample->validation_error, qr/Day.751. in volsurface for underlying\S+ greater than allowed/, 'Maturity on surface too big.');
-
-    $sample = Quant::Framework::Utils::Test::create_doc(
-        'volsurface_delta',
-        {
-            underlying_config => Quant::Framework::Utils::Test::create_underlying_config('frxEURUSD'),
-            symbol            => 'frxEURUSD',
-            surface           => {
-                1  => {smile => {50 => 0.2}},
-                7  => {smile => {50 => 0.2}},
-                14 => {}
-            },
-            recorded_date    => Date::Utility->new,
-            save             => 0,
-            chronicle_reader => $chronicle_r,
-            chronicle_writer => $chronicle_w
-        });
-    ok !$sample->is_valid, 'invalid if smile is empty';
-    like($sample->validation_error, qr/Missing both smile and atm_spread/, 'No smile or atm_spread on valid maturity.');
 
     # Smiles and ATM spreads:
     warning_like {

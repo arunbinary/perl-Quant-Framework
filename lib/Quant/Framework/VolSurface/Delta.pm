@@ -131,11 +131,15 @@ sub get_volatility {
         if $args->{from}->epoch > $args->{to}->epoch;
 
     # This sanity check prevents negative variance
-    die 'Requested dates are too far in the past ['
-        . $args->{from}->datetime
-        . '] with surface recorded date ['
-        . $self->recorded_date->datetime . ']'
-        if $args->{from}->epoch < $self->recorded_date->epoch;
+    # This will happen when we are trying to price a contract that has expired but not settled.
+    if ($args->{from}->epoch < $self->recorded_date->epoch) {
+        $self->validation_error('Requesting a volatility for date in the past. Volatility surface date['
+                . $self->recorded_date->datetime
+                . '] requested date['
+                . $args->{from}->datetime
+                . ']');
+        return 0.01;    # return a 1% volatility but we will not sell on this volatility.
+    }
 
     my $delta =
           (defined $args->{delta})  ? $args->{delta}

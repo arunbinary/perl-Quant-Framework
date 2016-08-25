@@ -47,9 +47,11 @@ subtest 'get_volatility for different expiries ' => sub {
     qr/Inverted dates/i,
         "throws exception when \$from and \$to are inverted in get_vol";
     $now = $surface->recorded_date;
-    throws_ok { $surface->get_volatility({delta => 50, to => $now->plus_time_interval('1s'), from => $now->minus_time_interval('1s')}) }
-    qr/Requested dates are too far/i,
-        "throws exception when is in the past of surface recorded date in get_vol";
+    lives_ok {
+        my $vol = $surface->get_volatility({delta => 50, to => $now->plus_time_interval('1s'), from => $now->minus_time_interval('1s')});
+        is $vol, 0.01, '1% volatility';
+        like ($surface->validation_error, qr/Requesting a volatility for date in the past/, 'volsurface validation error is set.');
+    } "do not die if requested date for volatility is in the past";
     lives_ok { $surface->get_volatility({delta => 50, from => $now, to => $now->plus_time_interval('1s')}) }
     "can get volatility when mandatory arguments are provided";
 };
