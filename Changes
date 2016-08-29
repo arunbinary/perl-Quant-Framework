@@ -34,3 +34,5 @@ Revision history for Quant-Framework
         Fixes minimum volatility spread bug.
 0.34    17 Aug 2016
         Handles negative variance in get_volatility differently.
+0.35    29 Aug 2016
+        Dividend refactoring. (Remove Asset.pm and Rename Dividend.pm as Asset.pm).
