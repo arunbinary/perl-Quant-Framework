@@ -11,7 +11,6 @@ use Quant::Framework::TradingCalendar;
 use Quant::Framework::InterestRate;
 use Quant::Framework::Currency;
 use Quant::Framework::Asset;
-use Quant::Framework::Dividend;
 use Quant::Framework::ExpiryConventions;
 use Quant::Framework::Spot;
 use Quant::Framework::Spot::DatabaseAPI;
@@ -134,7 +133,7 @@ Creates a default instance of Dividend according to current parameters (chronicl
 sub build_dividend {
     my $self = shift;
 
-    return Quant::Framework::Dividend->new({
+    return Quant::Framework::Asset->new({
         symbol            => $self->underlying_config->symbol,
         underlying_config => $self->underlying_config,
         for_date          => $self->for_date,

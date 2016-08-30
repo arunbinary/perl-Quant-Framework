@@ -18,7 +18,6 @@ my $underlying_config = Quant::Framework::Utils::Test::create_underlying_config(
 
 #instead of mocking Builder's *_rate_for, we set default rates here
 $underlying_config->{default_dividend_rate} = 0.5;
-$underlying_config->{default_interest_rate} = 0.5;
 
 Quant::Framework::Utils::Test::create_doc(
     'volsurface_moneyness',

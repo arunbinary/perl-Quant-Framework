@@ -6,7 +6,6 @@ lib/Quant/Framework/Asset.pm
 lib/Quant/Framework/CorporateAction.pm
 lib/Quant/Framework/CorrelationMatrix.pm
 lib/Quant/Framework/Currency.pm
-lib/Quant/Framework/Dividend.pm
 lib/Quant/Framework/Document.pm
 lib/Quant/Framework/EconomicEventCalendar.pm
 lib/Quant/Framework/Exchange.pm
@@ -39,7 +38,6 @@ share/exchanges_trading_days_aliases.yml
 share/expected_trading_days.yml
 share/test_data.yml
 share/test_underlying_config.yml
-t/asset.t
 t/autosyntax.t
 t/basic/00-load.t
 t/basic/manifest.t
