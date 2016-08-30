@@ -50,7 +50,6 @@ use Data::Chronicle::Mock;
 use Quant::Framework::InterestRate;
 use Quant::Framework::Currency;
 use Quant::Framework::Asset;
-use Quant::Framework::Dividend;
 use Quant::Framework::VolSurface::Delta;
 use Quant::Framework::VolSurface::Moneyness;
 use Quant::Framework::Utils::UnderlyingConfig;

@@ -100,24 +100,6 @@ my $ir_data = Quant::Framework::ImpliedRate->new(
 my $rates = $ir_data->rates;
 ``` 
  
-##Quant::Framework::Asset
-
-An asset is anything which has value and can be bought and sold. For example in a forex currency pair (EUR/USD) you will be paying/receiving USD when you buy/sell EUR. So here EUR is the asset. Also for indices or stocks you will be paying domestic currency to buy units of index or stock. So Index or Stock are assets too.
-
-This module can be used to read dividend rates for an asset. You will need to pass symbol name when instantiating the module.
-
-To instantiate an asset module and read dividend rates:
-
-```
-my $asset = Quant::Framework::Asset->new(
-            symbol => 'AEX',
-            chronicle_reader => $chronicle_r);
-            
-#here $time_in_years is the duration for which we want to get dividend rates.
-my $time_in_years = 0.5;
-my $rates = $asset->rate_for($time_in_years);
-```
-
 ##Quant::Framework::Currency
 
 The representation of currency. You can use this module to query for a currency's interest rates, holidays and query for already saved implied interest rates. This module relies on `Quant::Framework::Holiday` to fetch holiday information for it's currency.
@@ -184,7 +166,7 @@ my $correlation = $matrix->correlation_for('DJI', 'AUD', $time_in_years, $expiry
 
 ```
 
-##Quant::Framework::Dividend
+##Quant::Framework::Asset
 
 Dividend is the capital gains for an underlying after a period of time. For more information please refer to [Dividend](https://en.wikipedia.org/wiki/Dividend).
 
@@ -193,7 +175,7 @@ This module saves/loads dividends data to/from Chronicle and query dividend rate
 To save dividends for an underlying:
 
 ```
-my $dividends = Quant::Framework::Dividends->new(
+my $dividends = Quant::Framework::Asset->new(
             symbol => $symbol,
             rates => { 
                         1 => 0, 
@@ -212,7 +194,7 @@ $dividends->save;
 To read dividends information and query rates for an underlying:
 
 ```
-my $dividends = Quant::Framework::Dividends->new(
+my $dividends = Quant::Framework::Asset->new(
             symbol => $symbol,
             chronicle_reader => $chronicle_r);
 

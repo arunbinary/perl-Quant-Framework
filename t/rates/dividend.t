@@ -8,7 +8,7 @@ use Test::Exception;
 use Test::NoWarnings;
 
 use Quant::Framework::Utils::Test;
-use Quant::Framework::Dividend;
+use Quant::Framework::Asset;
 use Data::Chronicle::Writer;
 use Data::Chronicle::Reader;
 use Data::Chronicle::Mock;
@@ -19,7 +19,7 @@ my ($chronicle_r, $chronicle_w) = Data::Chronicle::Mock::get_mocked_chronicle();
 subtest 'save dividend' => sub {
     lives_ok {
         is(
-            Quant::Framework::Dividend->new(
+            Quant::Framework::Asset->new(
                 symbol           => 'AEX',
                 chronicle_reader => $chronicle_r,
                 chronicle_writer => $chronicle_w
@@ -28,7 +28,7 @@ subtest 'save dividend' => sub {
             'document is not present'
         );
 
-        my $dvd = Quant::Framework::Dividend->new(
+        my $dvd = Quant::Framework::Asset->new(
             rates            => {365          => 0.1},
             discrete_points  => {'2014-10-10' => 0},
             recorded_date    => Date::Utility->new('2014-10-10'),
@@ -38,7 +38,7 @@ subtest 'save dividend' => sub {
         );
         ok $dvd->save, 'save without error';
         lives_ok {
-            Quant::Framework::Dividend->new(
+            Quant::Framework::Asset->new(
                 symbol           => 'AEX',
                 chronicle_reader => $chronicle_r,
                 chronicle_writer => $chronicle_w
@@ -46,7 +46,7 @@ subtest 'save dividend' => sub {
         }
         'successfully retrieved saved document from chronicle';
 
-        my $dv = Quant::Framework::Dividend->new(
+        my $dv = Quant::Framework::Asset->new(
             symbol           => 'AEX',
             chronicle_reader => $chronicle_r,
             chronicle_writer => $chronicle_w
