@@ -132,11 +132,12 @@ sub get_volatility {
 
     # This sanity check prevents negative variance
     # This will happen when we are trying to price a contract that has expired but not settled.
-    if ($args->{from}->epoch < $self->recorded_date->epoch) {
-        $self->validation_error('Requesting a volatility for date in the past. Volatility surface date['
+    if ($args->{from}->epoch < $self->recorded_date->epoch || $args->{from}->epoch == $args->{to}->epoch) {
+        $self->validation_error('Invalid request for get volatility. Surface recorded date ['
                 . $self->recorded_date->datetime
-                . '] requested date['
-                . $args->{from}->datetime
+                . '] requested period ['
+                . $args->{from}->datetime . ' to '
+                . $args->{to}->datetime
                 . ']');
         return 0.01;    # return a 1% volatility but we will not sell on this volatility.
     }
