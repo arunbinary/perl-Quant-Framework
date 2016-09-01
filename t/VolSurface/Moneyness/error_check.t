@@ -145,4 +145,15 @@ subtest "uses smile of the smallest available term structure when we need price 
     );
 };
 
+subtest 'get volatility with invalid period' => sub {
+    lives_ok {
+        is $v->get_volatility(
+                moneyness => 100,
+                from      => $from,
+                to        => $from,
+        ), 0.01, 'get default 1% volatility';
+        like ($v->validation_error, qr/Invalid request for get volatility/, 'volsurface validation error is set.');
+    } 'do not die if get volatility is called with invalid period';
+};
+
 done_testing;
