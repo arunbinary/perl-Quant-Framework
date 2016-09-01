@@ -587,4 +587,3 @@ Spot module assumes existence of a PostgreSQL database with below specifications
 - `ohlc_start_end(underlying, period, start, end, official)`: This will returns a list of OHLC (Open, High, Low, Close) values for the market inside (start, end) period, aggregating `period` minutes into one OHLC data. If `official` parameter is set, it will lookup for official OHLC values.
 - `ohlc_daily_list(underlying, start, end , official)`: This will return daily OHLC values inside given period (start, end).
 - `ohlc_start_end_with_limit_for_charting(underlying, period, start, end, official, limit)`: This function is same as `ohlc_start_end` with the exception that it accepts a `limit` parameter which can be useful for charting purposes. This parameter will limit number of output items.
-- 
