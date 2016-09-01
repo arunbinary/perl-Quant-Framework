@@ -157,33 +157,27 @@ sub get_first_tick {
     my $pipsize       = $args{pip_size};
     my $start_time    = Date::Utility->new($args{start_time})->db_timestamp;
     my $end_time      = Date::Utility->new($args{end_time} // time)->db_timestamp;
-    my @sql_args      = ($system_symbol, $start_time, $end_time);
-    my $sql =
-        'SELECT EXTRACT(epoch FROM ts) AS epoch, spot FROM ' . ($self->default_prefix // '') . 'tick WHERE underlying = $1 AND ts >= $2 AND ts <= $3';
 
-    my $next = 4;
-    my @barriers;
-    if ($args{higher}) {
-        push @barriers, "spot > \$$next";
-        push @sql_args, $args{higher} - $pipsize / 2;
-        $next++;
-    }
-    if ($args{lower}) {
-        push @barriers, "spot < \$$next";
-        push @sql_args, $args{lower} + $pipsize / 2;
-        $next++;
-    }
-    unless (@barriers) {
+    unless ($args{higher} || $args{lower}) {
         die "At least one of higher or lower must be specified";
     }
-    $sql .= " AND (" . join(" OR ", @barriers) . q[) ORDER BY ts ASC LIMIT 1];
 
-    my $statement = $self->dbh->prepare_cached($sql, {}, 3);
-    foreach my $which_param (1 .. scalar @sql_args) {
+    my $statement = $self->dbh->prepare_cached('SELECT * FROM get_tick_first($1, $2, $3, $4, $5)', {}, 5);
 
-        # There has to be a more reasonable standard way to do this.
-        $statement->bind_param($which_param, $sql_args[$which_param - 1]);
+    $statement->bind_param(1, $underlying->system_symbol);
+    $statement->bind_param(2, $start_time);
+    $statement->bind_param(3, $end_time);
+    if ($args{lower}) {
+        $statement->bind_param(4, $args{lower} + $pipsize / 2);
+    } else {
+        $statement->bind_param(4, undef);
     }
+    if ($args{higher}) {
+        $statement->bind_param(5, $args{higher} - $pipsize / 2);
+    } else {
+        $statement->bind_param(5, undef);
+    }
+
     my $tick;
     if (my ($epoch, $quote) = $self->dbh->selectrow_array($statement)) {
         $tick = Quant::Framework::Spot::Tick->new({
