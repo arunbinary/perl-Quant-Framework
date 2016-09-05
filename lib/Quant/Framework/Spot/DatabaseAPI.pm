@@ -161,7 +161,7 @@ sub get_first_tick {
         die "At least one of higher or lower must be specified";
     }
 
-    my $statement = $self->dbh->prepare_cached('SELECT * FROM get_tick_first($1, $2, $3, $4, $5)', {}, 5);
+    my $statement = $self->dbh->prepare_cached('SELECT * FROM get_first_tick($1, $2, $3, $4, $5)', {}, 5);
 
     $statement->bind_param(1, $underlying->system_symbol);
     $statement->bind_param(2, $start_time);
