@@ -152,9 +152,11 @@ Find the first tick which breaches a barrier
 sub get_first_tick {
     my ($self, %args) = @_;
 
-    my ($underlying_symbol, $system_symbol, $pip_size) = @{$args}{qw(underlying system_symbol pip_size)};
-    my $start_time = Date::Utility->new($args{start_time})->db_timestamp;
-    my $end_time = Date::Utility->new($args{end_time} // time)->db_timestamp;
+    my $underlying_symbol = $args{underlying};
+    my $system_symbol     = $args{system_symbol};
+    my $pip_size          = $args{pip_size};
+    my $start_time        = Date::Utility->new($args{start_time})->db_timestamp;
+    my $end_time          = Date::Utility->new($args{end_time} // time)->db_timestamp;
 
     unless ($args{higher} || $args{lower}) {
         die "At least one of higher or lower must be specified";
@@ -166,12 +168,12 @@ sub get_first_tick {
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
     if ($args{lower}) {
-        $statement->bind_param(4, $args{lower} + $pipsize / 2);
+        $statement->bind_param(4, $args{lower} + $pip_size / 2);
     } else {
         $statement->bind_param(4, undef);
     }
     if ($args{higher}) {
-        $statement->bind_param(5, $args{higher} - $pipsize / 2);
+        $statement->bind_param(5, $args{higher} - $pip_size / 2);
     } else {
         $statement->bind_param(5, undef);
     }
