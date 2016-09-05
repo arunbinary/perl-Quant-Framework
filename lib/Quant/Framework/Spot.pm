@@ -166,8 +166,7 @@ sub closing_tick_on {
         aggregation_period => 86400,
     });
 
-    if ($ohlc and scalar @{$ohlc} > 0) {
-
+    if (@$ohlc > 0) {
         # We need a tick, but we can only get an OHLC
         # The epochs for these are set to be the START of the period.
         # So we also need to change it to the closing time. Meh.
@@ -179,7 +178,7 @@ sub closing_tick_on {
         });
     }
 
-    return;
+    return undef;
 }
 
 =head2 $self->set_spot_tick($value)
