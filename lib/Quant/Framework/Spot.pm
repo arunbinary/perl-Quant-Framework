@@ -152,13 +152,17 @@ Example : $underlying->closing_tick_on("10-Jan-00");
 =cut
 
 sub closing_tick_on {
-    my ($self, $end, $closing) = @_;
-    my $date = Date::Utility->new($end);
+    my ($self, $closing) = @_;
+
+    die 'must pass in a date for closing_tick_on' unless $closing;
+
+    $closing = Date::Utility->new($closing);
+    my $beginning_of_day = $closing->truncate_to_day;
 
     if ($closing and time > $closing->epoch) {
         my $ohlc = $self->feed_api->ohlc_start_end({
-            start_time         => $date,
-            end_time           => $date,
+            start_time         => $beginning_of_day,
+            end_time           => $beginning_of_day,
             aggregation_period => 86400,
         });
 
