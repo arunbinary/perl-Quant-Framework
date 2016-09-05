@@ -152,10 +152,9 @@ Find the first tick which breaches a barrier
 sub get_first_tick {
     my ($self, %args) = @_;
 
-    my $underlying = $args{underlying};
-    my $pipsize    = $underlying->pip_size;
+    my ($underlying_symbol, $system_symbol, $pip_size) = @{$args}{qw(underlying system_symbol pip_size)};
     my $start_time = Date::Utility->new($args{start_time})->db_timestamp;
-    my $end_time   = Date::Utility->new($args{end_time} // time)->db_timestamp;
+    my $end_time = Date::Utility->new($args{end_time} // time)->db_timestamp;
 
     unless ($args{higher} || $args{lower}) {
         die "At least one of higher or lower must be specified";
@@ -163,7 +162,7 @@ sub get_first_tick {
 
     my $statement = $self->dbh->prepare_cached('SELECT * FROM get_first_tick($1, $2, $3, $4, $5)', {}, 5);
 
-    $statement->bind_param(1, $underlying->system_symbol);
+    $statement->bind_param(1, $system_symbol);
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
     if ($args{lower}) {
@@ -180,7 +179,7 @@ sub get_first_tick {
     my $tick;
     if (my ($epoch, $quote) = $self->dbh->selectrow_array($statement)) {
         $tick = Quant::Framework::Spot::Tick->new({
-            symbol => $underlying->symbol,
+            symbol => $underlying_symbol,
             epoch  => $epoch,
             quote  => $quote,
         });
