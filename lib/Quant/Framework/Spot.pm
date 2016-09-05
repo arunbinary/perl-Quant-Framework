@@ -158,7 +158,7 @@ sub closing_tick_on {
     $date = Date::Utility->new($date);
 
     my $closing = $self->calendar->closing_on($date);
-    return undef if not $closing or time <= $closing->epoch;
+    return if not $closing or time <= $closing->epoch;
 
     my $ohlc = $self->feed_api->ohlc_start_end({
         start_time         => $date,
@@ -178,7 +178,7 @@ sub closing_tick_on {
         });
     }
 
-    return undef;
+    return;
 }
 
 =head2 $self->set_spot_tick($value)
