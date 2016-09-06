@@ -152,28 +152,28 @@ Find the first tick which breaches a barrier
 sub get_first_tick {
     my ($self, %args) = @_;
 
-    my $underlying    = $args{underlying};
-    my $system_symbol = $args{system_symbol};
-    my $pipsize       = $args{pip_size};
-    my $start_time    = Date::Utility->new($args{start_time})->db_timestamp;
-    my $end_time      = Date::Utility->new($args{end_time} // time)->db_timestamp;
+    my $underlying_symbol = $args{underlying};
+    my $system_symbol     = $args{system_symbol};
+    my $pip_size          = $args{pip_size};
+    my $start_time        = Date::Utility->new($args{start_time})->db_timestamp;
+    my $end_time          = Date::Utility->new($args{end_time} // time)->db_timestamp;
 
     unless ($args{higher} || $args{lower}) {
         die "At least one of higher or lower must be specified";
     }
 
-    my $statement = $self->dbh->prepare_cached('SELECT * FROM get_tick_first($1, $2, $3, $4, $5)', {}, 5);
+    my $statement = $self->dbh->prepare_cached('SELECT * FROM get_first_tick($1, $2, $3, $4, $5)', {}, 5);
 
-    $statement->bind_param(1, $underlying->system_symbol);
+    $statement->bind_param(1, $system_symbol);
     $statement->bind_param(2, $start_time);
     $statement->bind_param(3, $end_time);
     if ($args{lower}) {
-        $statement->bind_param(4, $args{lower} + $pipsize / 2);
+        $statement->bind_param(4, $args{lower} + $pip_size / 2);
     } else {
         $statement->bind_param(4, undef);
     }
     if ($args{higher}) {
-        $statement->bind_param(5, $args{higher} - $pipsize / 2);
+        $statement->bind_param(5, $args{higher} - $pip_size / 2);
     } else {
         $statement->bind_param(5, undef);
     }
@@ -181,7 +181,7 @@ sub get_first_tick {
     my $tick;
     if (my ($epoch, $quote) = $self->dbh->selectrow_array($statement)) {
         $tick = Quant::Framework::Spot::Tick->new({
-            symbol => $underlying,
+            symbol => $underlying_symbol,
             epoch  => $epoch,
             quote  => $quote,
         });

@@ -152,30 +152,37 @@ Example : $underlying->closing_tick_on("10-Jan-00");
 =cut
 
 sub closing_tick_on {
-    my ($self, $end, $closing) = @_;
-    my $date = Date::Utility->new($end);
+    my ($self, $date) = @_;
 
-    if ($closing and time > $closing->epoch) {
-        my $ohlc = $self->feed_api->ohlc_start_end({
-            start_time         => $date,
-            end_time           => $date,
-            aggregation_period => 86400,
-        });
+    die 'must pass in a date for closing_tick_on' unless $date;
+    $date = Date::Utility->new($date);
 
-        if ($ohlc and scalar @{$ohlc} > 0) {
-
-            # We need a tick, but we can only get an OHLC
-            # The epochs for these are set to be the START of the period.
-            # So we also need to change it to the closing time. Meh.
-            my $not_tick = $ohlc->[0];
-            return Quant::Framework::Spot::Tick->new({
-                symbol => $self->underlying_config->symbol,
-                epoch  => $closing->epoch,
-                quote  => $not_tick->close,
-            });
-        }
+    my $closing = $self->calendar->closing_on($date);
+    if (not $closing or time <= $closing->epoch) {
+        ##no critic (ProhibitExplicitReturnUndef)
+        return undef;
     }
-    return;
+
+    my $ohlc = $self->feed_api->ohlc_start_end({
+        start_time         => $date,
+        end_time           => $date,
+        aggregation_period => 86400,
+    });
+
+    if (@$ohlc > 0) {
+        # We need a tick, but we can only get an OHLC
+        # The epochs for these are set to be the START of the period.
+        # So we also need to change it to the closing time. Meh.
+        my $not_tick = $ohlc->[0];
+        return Quant::Framework::Spot::Tick->new({
+            symbol => $self->underlying_config->symbol,
+            epoch  => $closing->epoch,
+            quote  => $not_tick->close,
+        });
+    }
+
+    ##no critic (ProhibitExplicitReturnUndef)
+    return undef;
 }
 
 =head2 $self->set_spot_tick($value)

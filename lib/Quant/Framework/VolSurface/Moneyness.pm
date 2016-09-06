@@ -113,7 +113,15 @@ sub get_volatility {
     delete $internal_args{to};
     delete $internal_args{from};
 
-    die "Argument 'days' must be positive, non-zero number." if $internal_args{days} <= 0;
+    if ($internal_args{days} <= 0) {
+        $self->validation_error('Invalid request for get volatility. Surface recorded date ['
+                . $self->recorded_date->datetime
+                . '] requested period ['
+                . $args->{from}->datetime . ' to '
+                . $args->{to}->datetime
+                . ']');
+        return 0.01;    # return a 1% volatility but we will not sell on this volatility.
+    }
 
     # we are handling delta seperately because it involves
     # a lot more steps to calculate vol for a delta point

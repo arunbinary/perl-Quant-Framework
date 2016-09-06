@@ -36,3 +36,5 @@ Revision history for Quant-Framework
         Handles negative variance in get_volatility differently.
 0.35    29 Aug 2016
         Dividend refactoring. (Remove Asset.pm and Rename Dividend.pm as Asset.pm).
+0.36    6 Sept 2016
+        Changed closing_tick_on function to accept only a date and sets validation error if get_volatility function is called with zero duration.
