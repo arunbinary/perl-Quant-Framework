@@ -38,3 +38,5 @@ Revision history for Quant-Framework
         Dividend refactoring. (Remove Asset.pm and Rename Dividend.pm as Asset.pm).
 0.36    6 Sept 2016
         Changed closing_tick_on function to accept only a date and sets validation error if get_volatility function is called with zero duration.
+0.37    4 Oct, 2016
+        Removing spot related modules
