@@ -1,5 +1,6 @@
 use Test::MockTime qw/:all/;
 use Test::Most qw(-Test::Deep);
+use Test::FailWarnings;
 use Scalar::Util qw( looks_like_number );
 use Test::MockObject::Extends;
 use Test::FailWarnings;

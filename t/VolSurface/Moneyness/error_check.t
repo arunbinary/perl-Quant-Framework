@@ -1,4 +1,5 @@
 use Test::Most qw(-Test::Deep);
+use Test::FailWarnings;
 use Test::MockObject::Extends;
 use Test::MockModule;
 use File::Spec;

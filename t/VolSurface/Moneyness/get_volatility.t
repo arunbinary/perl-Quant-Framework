@@ -2,6 +2,7 @@ use strict;
 use warnings;
 
 use Test::Most qw(-Test::Deep);
+use Test::FailWarnings;
 use Test::MockObject::Extends;
 use Test::FailWarnings;
 use Test::MockModule;

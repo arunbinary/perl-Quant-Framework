@@ -7,6 +7,7 @@ use Test::Most;
 use List::Util qw( max );
 use Test::MockObject::Extends;
 use Test::Warn;
+use Test::FailWarnings -allow_deps => 1;
 use Scalar::Util qw( looks_like_number );
 use Test::MockModule;
 use File::Spec;
