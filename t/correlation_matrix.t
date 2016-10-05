@@ -2,8 +2,8 @@ use strict;
 use warnings;
 
 use Test::Exception;
-use Test::More tests => 2;
-use Test::NoWarnings;
+use Test::More tests => 1;
+use Test::FailWarnings;
 
 use Date::Utility;
 use Format::Util::Numbers qw( roundnear );

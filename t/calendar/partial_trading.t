@@ -4,8 +4,8 @@ use strict;
 use warnings;
 
 use Quant::Framework::Utils::Test;
-use Test::More tests => 4;
-use Test::NoWarnings;
+use Test::More tests => 3;
+use Test::FailWarnings;
 use Test::Exception;
 
 use Quant::Framework::PartialTrading;

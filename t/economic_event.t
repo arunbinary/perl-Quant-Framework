@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
-use Test::More (tests => 3);
-use Test::NoWarnings;
+use Test::More (tests => 2);
+use Test::FailWarnings;
 use Test::Exception;
 
 use Data::Chronicle::Writer;

@@ -3,8 +3,8 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
-use Test::NoWarnings;
+use Test::More tests => 4;
+use Test::FailWarnings;
 use Test::Exception;
 
 use Date::Utility;
