@@ -31,7 +31,7 @@ WriteMakefile(
         'Test::Exception'           => 0,
         'Test::MockModule'          => 0,
         'Test::MockObject::Extends' => 0,
-        'Test::NoWarnings'          => 0,
+        'Test::FailWarnings'        => 0,
         'Date::Utility'             => 0,
         'Data::Chronicle::Writer'   => 0,
         'Data::Chronicle::Reader'   => 0,
