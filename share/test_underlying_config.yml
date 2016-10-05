@@ -10,7 +10,7 @@ frxEURUSD:
   exchange_name : 'FOREX'
   uses_implied_rate_for_asset : 1
   uses_implied_rate_for_quoted_currency : 0
-  spot : 1.12345
+  spot : 1.0
   asset_symbol : 'EUR'
   quoted_currency_symbol : 'USD'
   extra_vol_diff_by_delta : 5
